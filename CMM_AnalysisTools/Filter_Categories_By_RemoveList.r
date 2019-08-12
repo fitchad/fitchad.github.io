@@ -1,4 +1,8 @@
 #!/usr/bin/env Rscript
+
+
+#This is Kelvin Li's script. I performed some edits to output the samples/reads
+#removed. I used Kelvin's template to output a log file as well. 
 #edited: ACF 7/31/19
 ###############################################################################
 

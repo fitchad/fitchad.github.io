@@ -194,8 +194,13 @@ for (i in 1:length(Paired_vect)){
 NumSampleIDs <- nlevels(unique(QC_Table$X..Name))
 print(NumSampleIDs)
 ##Getting max read value to keep ylim consistent across plots
-TableMaxReads <- max(QC_Table_Reads$NumRecords) 
+TableMaxReads <- max(QC_Table_Reads$NumRecords)
 
+#Limiting the y axis. Samples with reads above this limit make the plots 
+#difficult to read for lower output samples. 
+if (TableMaxReads > 50000){
+  TableMaxReads <- 50000
+}
 
 
 ##Modifying QC table. Adding a combined Read_Filter column, and renaming the Filter column
