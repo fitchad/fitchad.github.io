@@ -85,7 +85,6 @@ if(!length(opt$metadatacolumn)){
 if(!length(opt$outputfilename)){
   OutputFname=basename(opt$qcreport)
   OutputFname=gsub(".tsv", "",OutputFname);
-  #OutputFname=gsub(".pdf", "", OutputFname);
 }else{
   OutputFname=opt$outputfilename;
 }
@@ -146,8 +145,7 @@ melt_TableMerge<-function(table){
 plot_table<- function(table, yAxisLimit){
   plotted_table <- ggplot(table, aes(x=as.character(X..Name), value, fill=Read_Filter, width=0.75))+
     geom_bar(stat="identity",position="dodge", width = 0.5)+
-    #ylim(0,yAxisLimit)+
-    coord_cartesian(ylim=c(0,30000))+
+    coord_cartesian(ylim=c(0,TableMaxReads))+
     facet_grid(rows=vars(Filter)) +
     theme(axis.text.x=element_text(angle =90, size=11, hjust=1, vjust=0.5))+
     labs(title="", x="SampleID", y="Reads Count") +
@@ -174,7 +172,6 @@ load_factors=function(fname){
 #####Loading Data
 
 QC_Table=as.data.frame(read.csv(QCReportFname, sep="\t", quote=NULL))
-#QC_Table<-read.csv("~/Desktop/sf_QIIME-SHARED/Temp/0169_Deton_QC_25_Report.tsv", sep ="\t")
 
 ##Trimming table to sampleID / read type / filter used / reads count
 QC_Table_Reads <- QC_Table[,1:4]
@@ -199,8 +196,8 @@ TableMaxReads <- max(QC_Table_Reads$NumRecords)
 
 #Limiting the y axis. Samples with reads above this limit make the plots 
 #difficult to read for lower output samples. 
-if (TableMaxReads > 50000){
-  TableMaxReads <- 50000
+if (TableMaxReads > 30000){
+  TableMaxReads <- 30000
 }
 
 
@@ -208,7 +205,6 @@ if (TableMaxReads > 50000){
 ##so that it is ordered correctly in the facet grid
 
 QC_Table_Reads<- cbind(QC_Table_Reads, Read_Filter)
-#QC_Table_Reads<- subset(QC_Table_Reads, select= -c(Read,Filter))
 QC_Table_Reads$Filter <- as.character(QC_Table_Reads$Filter)
 QC_Table_Reads$Filter<- replace(QC_Table_Reads$Filter, QC_Table_Reads$Filter == "raw", "1_raw")
 QC_Table_Reads$Filter<- replace(QC_Table_Reads$Filter, QC_Table_Reads$Filter == "dust", "2_dust")
@@ -244,8 +240,6 @@ p <- plot.new()
 for(i in 1:length(SplitTable)){
   Tm <- melt_TableMerge(SplitTable[i])
   Ta <-plot_table(Tm, TableMaxReads)
-  #save_plot(Ta,i)
-  #PlotList<-c(Ta, i)
   print(Ta) #plots to PDF, each on own page
 }
 
