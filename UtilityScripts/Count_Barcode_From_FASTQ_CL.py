@@ -51,7 +51,9 @@ def get_args():
     parser.add_argument(
         '-u', '--unmatchedBCs', help='Print out barcodes that were not matched to the barcode list', required=False, default=False, action='store_true')
     parser.add_argument(
-        '-o', '--outputfile', type=str, help='location of output file. Default is working dir/temp.txt', required=False, default = cwd+"/.txt")
+        '-v', '--verbose', help='Print out counter', required=False, default=False, action='store_true')
+    parser.add_argument(
+        '-o', '--outputfile', type=str, help='location of output file. Default is working dir/BarcodesFromUndetermined.txt', required=False, default = cwd+"/BarcodesFromUndetermined.txt")
     # Array for all arguments passed to script
     args = parser.parse_args()
     # Assign args to variables
@@ -61,12 +63,13 @@ def get_args():
     BCcount=args.BCcount
     outputfile = args.outputfile
     unmatchedBCs = args.unmatchedBCs
+    verbose = args.verbose
     # Return all variable values
-    return fastqfile, BClist, outputfile, BCcolumn, BCcount, unmatchedBCs
+    return fastqfile, BClist, outputfile, BCcolumn, BCcount, unmatchedBCs, verbose
 
 # Match return values from get_arguments()
 # and assign to their respective variables
-fastqfile, BClist, outputfile, BCcolumn, BCcount, unmatchedBCs = get_args()
+fastqfile, BClist, outputfile, BCcolumn, BCcount, unmatchedBCs, verbose = get_args()
 
 
 BCcolumn = BCcolumn-1
@@ -100,8 +103,9 @@ with open (fastqfile, 'r') as F:
 
 
 #pattern = '1:N:0:(\w+\+\w+)$' #for dual barcodes from Basespace
-
-
+if verbose:
+  newSeqMatch = '^@M0'
+  countMatch = re.compile(newSeqMatch)
 
 ## Variables
 tempList = []
@@ -134,16 +138,25 @@ def table_dict_to_csv(output, dictionary):
 #Scans FASTQ, creates a dictionary of barcodes and counts number of matches.
 #prints a counter to show progress through lines of the file. 
 counter = 0
-with open(fastqfile, 'rb') as FASTQ:
 
-    for line in FASTQ:
-        #print line
-        m = re.findall(lineMatch,line)
-        if m:
+with open(fastqfile, 'rb') as FASTQ:
+  if verbose:
+      for i, l in enumerate(FASTQ):
+        pass
+      linesInFile = i+1
+      counter = linesInFile/4
+      print "Total Reads in File: " + str(linesInFile)
+      FASTQ.seek(0)
+  for line in FASTQ:
+          if verbose:
+            n = re.findall(countMatch, line)
+            if n:
+              counter = counter - 1
+              print "Remaining Sequences: " + str(counter)
+          m = re.findall(lineMatch,line)
+          if m:
             m2 = m[0]
 
-            counter = counter+ 1
-            #print counter
             matchDict[m2]=matchDict.get(m2,0)+1
 
 #Creates a delete list for barcodes with less than defined count
@@ -152,13 +165,14 @@ if BCcount:
         if value < BCcount:
             deleteList.append(key)            
 #Deletes the dictionary entries with less than defined count
-for item in deleteList:
-    if item in matchDict:
-        del matchDict[item]
+    for item in deleteList:
+        if item in matchDict:
+            del matchDict[item]
 
 #Matches dictionary of barcode counts against a list of barcodes.
 if BClist:
     with open(BClist, 'rb') as BCList:
+        print "Matches to Barcode List:"
         for line in BCList:
     
             barcode = line.split("\t")[BCcolumn]
@@ -174,10 +188,13 @@ if unmatchedBCs:
     for barcode in matchedBC:
         if barcode in matchDict.viewkeys():
             del matchDict[barcode]
-     
+    print "Barcodes Not Matched to List: "
     for key, val in matchDict.items():
         print key, "\t", val
 
 
 #write out barcode matches and counts to a csv file
+#Need to update code. Only outputs remaining BCs in matchdict, after deleting matches
+#to the barcode list. Probably need to save barcode matches as tuples in a list and 
+#then output those if they exist. 
 #table_dict_to_csv(outputfile, matchDict)
