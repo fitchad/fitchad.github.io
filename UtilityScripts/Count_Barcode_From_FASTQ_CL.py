@@ -152,7 +152,9 @@ with open(fastqfile, 'rb') as FASTQ:
             n = re.findall(countMatch, line)
             if n:
               counter = counter - 1
+
               print "Remaining Sequences: " + str(counter)
+
           m = re.findall(lineMatch,line)
           if m:
             m2 = m[0]

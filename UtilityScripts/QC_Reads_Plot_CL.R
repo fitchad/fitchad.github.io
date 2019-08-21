@@ -146,11 +146,12 @@ melt_TableMerge<-function(table){
 plot_table<- function(table, yAxisLimit){
   plotted_table <- ggplot(table, aes(x=as.character(X..Name), value, fill=Read_Filter, width=0.75))+
     geom_bar(stat="identity",position="dodge", width = 0.5)+
-    ylim(0,yAxisLimit)+
+    #ylim(0,yAxisLimit)+
+    coord_cartesian(ylim=c(0,30000))+
     facet_grid(rows=vars(Filter)) +
-    theme(axis.text.x=element_text(angle =45, size=12, hjust=1, vjust=1))+
+    theme(axis.text.x=element_text(angle =90, size=11, hjust=1, vjust=0.5))+
     labs(title="", x="SampleID", y="Reads Count") +
-	geom_hline(yintercept=10000)
+	geom_hline(yintercept=3000)
   
   
   return(plotted_table);
