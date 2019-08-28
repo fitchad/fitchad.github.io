@@ -27,7 +27,8 @@ params = c(
   "metadata", "m", 2, "character",
   "metadatacolumn", "c", 3, "integer",
   "outputfilename", "o", 4, "character",
-  "samplesperplot", "s", 5, "integer"
+  "samplesperplot", "s", 5, "integer",
+  "highlightline", "l", 6, "integer"
   
 );
 
@@ -47,6 +48,8 @@ usage = paste(
   "\n",
   "[-s samplesperplot]\n",
   "\n",
+  "[-l highlightline]\n",
+  "\n",
   "This script will take in a QC summary report","\n",
   "and generate bar plots for each sample/read at each filter", "\n",
   "\n",
@@ -54,6 +57,7 @@ usage = paste(
   "to split the plots (eg a sample type column)", "\n","\n",
   "Plots are split by a user defined samples size, or default of 50 per plot",
   "\n",
+  "A highlight line is place at 3000 reads or user defined level",
   "\n",
   "Plots are saved in the same directory as the QC report",
   "\n",
@@ -99,6 +103,15 @@ if(!length(opt$samplesperplot)){
   SamplesPerPlot = opt$samplesperplot;
 }
 
+if(!length(opt$highlightline)){
+  HighLightLine = 3000;
+}else{
+  HighLightLine = opt$highlightline;
+}
+
+
+
+
 #when applying 6 filters, each samples has a total of 13 entries on log
 SamplesPerPlot = SamplesPerPlot*13
 
@@ -120,7 +133,7 @@ cat("\n")
 
 
 split_table <- function(table){
-  if (NumSampleIDs>SamplesPerPlot){
+  if (NumSampleIDs>SamplesPerPlot/13){
     cat ("
          Table has greater than", SamplesPerPlot/13, "samples, splitting into chunks
          \n")
@@ -143,13 +156,13 @@ melt_TableMerge<-function(table){
   
 }
 plot_table<- function(table, yAxisLimit){
-  plotted_table <- ggplot(table, aes(x=as.character(X..Name), value, fill=Read_Filter, width=0.75))+
+  plotted_table <- ggplot(table, aes(x=as.character(SampleID), value, fill=Read_Filter, width=0.75))+
     geom_bar(stat="identity",position="dodge", width = 0.5)+
     coord_cartesian(ylim=c(0,TableMaxReads))+
     facet_grid(rows=vars(Filter)) +
     theme(axis.text.x=element_text(angle =90, size=11, hjust=1, vjust=0.5))+
     labs(title="", x="SampleID", y="Reads Count") +
-	geom_hline(yintercept=3000)
+	geom_hline(yintercept=HighLightLine)
   
   
   return(plotted_table);
@@ -189,7 +202,7 @@ for (i in 1:length(Paired_vect)){
 
 
 ##Counting the number of unique sampleIDs
-NumSampleIDs <- nlevels(unique(QC_Table$X..Name))
+NumSampleIDs <- nlevels(unique(QC_Table$SampleID))
 print(NumSampleIDs)
 ##Getting max read value to keep ylim consistent across plots
 TableMaxReads <- max(QC_Table_Reads$NumRecords)
