@@ -226,11 +226,16 @@ QC_Table_Reads$Filter<- replace(QC_Table_Reads$Filter, QC_Table_Reads$Filter == 
 QC_Table_Reads$Filter<- replace(QC_Table_Reads$Filter, QC_Table_Reads$Filter == "primer_trim", "5_primer_trim")
 QC_Table_Reads$Filter<- replace(QC_Table_Reads$Filter, QC_Table_Reads$Filter == "merged", "6_merged")
 
-summary(QC_Table_Reads)
+#Ordering Table by SampleIDs
+QC_Table_Reads<- QC_Table_Reads[order(QC_Table_Reads$SampleID),]
+
+#Renumbering rows after ordering in previous step. Will keep samples in order when plotting. 
+row.names(QC_Table_Reads)<- 1:nrow(QC_Table_Reads)
 
 #cutting table into lists of N samples each.
 SplitTable<- split_table(QC_Table_Reads)
 
+#SplitTable
 
 
 
