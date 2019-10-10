@@ -2,19 +2,26 @@
 
 # -*- coding: utf-8 -*-
 """
-Created on Wed Oct 24 13:43:35 2018
+
+Updated 10/10/2019
 
 @author: acf
 
 
 Program will take in an Illumina fastq file, use a regex to match the 
-barcode in the header, add the barcode to a counting dictionary,
+barcode (in the header if basepace derived or in index file if from
+MiSeq Reporter), add the barcode to a counting dictionary,
 and then create .csv file that has the barcode sequences and total counts
 of each barcode. Useful when looking at an undetermined file to see what 
 barcodes were not demuxed. 
 
 Barcode List has to be a TSV file containing the barcode sequence in a 
 user specified column or default of <BCName>\t<BCSequence>\t<AdditionalCols>.
+
+
+For Barcode pairs, the barcode list file should contain a single column
+containing the barcodes as BC1+BC2 in the order of the index files created. 
+BC1 is I1, BC2 is I2. Also keep in mind the orientation of the barcode sequence.
 
 
 """
@@ -43,6 +50,8 @@ def get_args():
     parser.add_argument(
         '-f', '--fastqfile', type=str, help='location of fastq file to parse', required=True)
     parser.add_argument(
+        '-f2', '--fastqfile2', type=str, help='location of second barcode fastq file to parse', required=False)
+    parser.add_argument(
         '-b', '--BClist', type=str, help='location of tsv file containing barcode information', required=False)
     parser.add_argument(
         '-c', '--BCcolumn', type=int, help='column number containing barcode sequences from .tsv file', required=False, default=2)
@@ -58,6 +67,7 @@ def get_args():
     args = parser.parse_args()
     # Assign args to variables
     fastqfile = args.fastqfile
+    fastqfile2 = args.fastqfile2
     BClist = args.BClist
     BCcolumn = args.BCcolumn
     BCcount=args.BCcount
@@ -65,11 +75,11 @@ def get_args():
     unmatchedBCs = args.unmatchedBCs
     verbose = args.verbose
     # Return all variable values
-    return fastqfile, BClist, outputfile, BCcolumn, BCcount, unmatchedBCs, verbose
+    return fastqfile, fastqfile2, BClist, outputfile, BCcolumn, BCcount, unmatchedBCs, verbose
 
 # Match return values from get_arguments()
 # and assign to their respective variables
-fastqfile, BClist, outputfile, BCcolumn, BCcount, unmatchedBCs, verbose = get_args()
+fastqfile, fastqfile2, BClist, outputfile, BCcolumn, BCcount, unmatchedBCs, verbose = get_args()
 
 
 BCcolumn = BCcolumn-1
@@ -110,6 +120,7 @@ if verbose:
 ## Variables
 tempList = []
 matchDict = {}
+matchDict2BCs = {}
 #matchDict2 = {}
 matchedBC = []
 deleteList = []
@@ -138,28 +149,78 @@ def table_dict_to_csv(output, dictionary):
 #Scans FASTQ, creates a dictionary of barcodes and counts number of matches.
 #prints a counter to show progress through lines of the file. 
 counter = 0
+if not fastqfile2:
+    with open(fastqfile, 'rb') as FASTQ:
+      if verbose:
+          for i, l in enumerate(FASTQ):
+            pass
+          linesInFile = i+1
+          counter = linesInFile/4
 
-with open(fastqfile, 'rb') as FASTQ:
-  if verbose:
-      for i, l in enumerate(FASTQ):
-        pass
-      linesInFile = i+1
-      counter = linesInFile/4
-      print "Total Reads in File: " + str(linesInFile)
-      FASTQ.seek(0)
-  for line in FASTQ:
-          if verbose:
-            n = re.findall(countMatch, line)
-            if n:
-              counter = counter - 1
+          print "Total Reads in File: " + str(linesInFile)
+          FASTQ.seek(0)
+      for line in FASTQ:
+              if verbose:
+                n = re.findall(countMatch, line)
+                if n:
+                  counter = counter - 1
+                if counter % 500000 == 0:
+                  print "Remaining Sequences: " + str(counter)
+    
+              m = re.findall(lineMatch,line)
+              if m:
+                m2 = m[0]
+    
+                matchDict[m2]=matchDict.get(m2,0)+1
 
-              print "Remaining Sequences: " + str(counter)
+if fastqfile2:
+    with open(fastqfile, 'r') as FASTQ:
+        keyF1 = ""
+        valueF1 = ""
+        boolmatch = 0
+        for line in FASTQ:
+    
+            if (boolmatch==1):
+                if re.search('^([A,C,T,G,N]{8,12})$', line):
+                    b= re.findall('^([A,C,T,G,N]{8,12})$', line)
+                    valueF1 = b[0]
+    
+                    matchDict2BCs[keyF1]=[valueF1]
+                    boolmatch = 0
+            if re.search('^(@M[^ ]*)', line) and boolmatch==0:
+                boolmatch = 1
+                m = re.findall('^(@M[^ ]*)', line)  
+                keyF1 = m[0]
 
-          m = re.findall(lineMatch,line)
-          if m:
-            m2 = m[0]
+    with open(fastqfile2, 'r') as FASTQ2:
+        keyF2 = ""
+        valueF2 = ""
+        boolmatch = 0
+        for line in FASTQ2:
+            if keyF2 is "":
+                exit
+            elif matchDict2BCs[keyF2]:
+                if (boolmatch==1):
+                    if re.search('^([A,C,T,G,N]{8,12})$', line):
+                        b= re.findall('^([A,C,T,G,N]{8,12})$', line)
+                        valueF2 = b[0]
+                        matchDict2BCs[keyF2].append(valueF2)
+                        boolmatch = 0
+                        keyF2 = ""
+                
+            if re.search('^(@M[^ ]*)', line) and boolmatch ==0:
+                m = re.findall('^(@M[^ ]*)', line)
+                boolmatch = 1
+                keyF2 = m[0]
 
-            matchDict[m2]=matchDict.get(m2,0)+1
+                
+    for values in matchDict2BCs:
+        TempList = matchDict2BCs[values]
+        x= TempList[0] + "+" + TempList[1]
+        matchDict[x]=matchDict.get(x,0)+1
+
+
+
 
 #Creates a delete list for barcodes with less than defined count
 if BCcount:
