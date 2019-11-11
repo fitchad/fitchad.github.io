@@ -145,7 +145,7 @@ plot_table<- function(table, yAxisLimit){
   plotted_table <- ggplot(table, aes(x=as.character(SampleID), value, fill=variable, width=0.75))+
     geom_bar(stat="identity",position="dodge", width = 0.5)+
     ylim(0,yAxisLimit)+
-    theme(axis.text.x=element_text(angle = 45, size=15, vjust=1, hjust=1)) + 
+    theme(axis.text.x=element_text(angle = 90, size=15, vjust=0.5, hjust=1)) + 
     theme(axis.text.y=element_text(size=15)) +
     theme(axis.title.x=element_text(size=20)) +
     theme(axis.title.y=element_text(size=20)) +
