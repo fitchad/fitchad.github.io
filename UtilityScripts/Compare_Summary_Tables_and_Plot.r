@@ -14,7 +14,6 @@ options(useFancyQuotes = F);
 #1. output - get directory
 #2. Add table summary to first page of PDF
 #3. Add summary statistics? Mean / Median by category?
-#4. Naming issue - if tables have same name, only 1 will be graphed.
 #5. Shorten name of tables, remove "summary_table.tsv"
 
 ########################
@@ -27,7 +26,8 @@ params = c(
   "summarytable2", "b", 2, "character",
   "summarytable3", "c", 3, "character",
   "outputfilename", "o", 4, "character",
-  "samplesperplot", "s", 5, "integer"
+  "samplesperplot", "s", 5, "integer",
+  "columnlist", "l", 6, "list"
   
 );
 
@@ -43,6 +43,10 @@ usage = paste(
   "\n",
   "[-c summarytable3]\n",
   "\n",
+  
+  "[-l columnlist]\n",
+  "\n",
+  
   "[-o outputfilename]\n",
   "\n",
   "[-s samplesperplot]\n",
@@ -50,8 +54,15 @@ usage = paste(
   "This script will take in a up to 3 summary tables","\n",
   "and generate bar plots for each sample per table", "\n",
   "\n",
-  "Plots are split by a user defined samples size, or default of 50 per plot",
+  "The script can also generically plot values from different .tsv files against each other\n",
+  "by defining a list of columns, assuming that each .tsv has the same sampleIDs in the first column\n",
   "\n",
+  "Plots are split by a user defined samples size, or default of 50 per plot\n",
+  "\n",
+  "When using the -l to specify a list of columns enter as a quoted string, eg '1,6,4'\n",
+  "with the order as 'Table1,Table2,Table3', eg Table1$1,Table2$6,Table3$4 will be compared\n",
+  "Column number is calculated without including the first column containing the sampleIDs\n",
+  "Default values for the column numbers is 1, corresponding to the totals column of a summary table\n",
   "\n",
   "Plots are saved in the same directory as the comparison table",
   "\n",
@@ -91,7 +102,16 @@ if(!length(opt$outputfilename)){
 OutputFnameCSV=paste(OutputFname, ".ReadsComparison.csv", sep="")
 OutputFname=paste(OutputFname, ".ReadsComparisonBarplot.pdf", sep="");
 
+if(!length(opt$columnlist)){
+  ColumnList = "1,1,1";
+}else{
+  ColumnList = opt$columnlist;
+}
 
+columnnameslist = strsplit(ColumnList,",")[[1]];
+
+
+  
 
 if(!length(opt$samplesperplot)){
   SamplesPerPlot = 50;
@@ -157,6 +177,47 @@ plot_table<- function(table, yAxisLimit){
   
 }
 
+plot_bar <- function(table){
+  sum_500<- sum(table$Total > 500)
+  sum_1000<- sum(table$Total > 1000)
+  sum_3000<- sum(table$Total > 3000)
+  sum_5000<- sum(table$Total > 5000)
+  sum_10000<- sum(table$Total > 10000)
+  sum_total<-rbind(sum_500, sum_1000, sum_3000, sum_5000, sum_10000)
+  #print(sum_total)
+  total_counts<- c("500","1000","3000","5000","10000+")
+  sum_table_total <- data.frame(names=total_counts, sum_total)
+
+  plotted_table<- ggplot(sum_table_total, aes(names, sum_total), xlab="Read Counts", ylab="Sample Count", ylim=c(0,nrow(table)))+
+    geom_col()+
+    scale_x_discrete(limits=total_counts)+
+    labs(x="Read Counts", y="Sample Count")
+  
+  
+  
+  return(plotted_table)
+}
+
+plot_text=function(strings){
+  
+  num_lines=length(strings);
+  top=max(as.integer(num_lines), 52);
+  text_size=.75
+  plot(0,0, xlim=c(0,top), ylim=c(0,top), type="n",  xaxt="n", yaxt="n",
+       xlab="", ylab="", bty="n", oma=c(1,1,1,1), mar=c(0,0,0,0)
+  );
+  
+  
+  
+  for(i in 1:num_lines){
+    #cat(strings[i], "\n", sep="");
+    strings[i]=gsub("\t", "", strings[i]);
+    text(0, top-i, strings[i], pos=4, cex=text_size);
+  }
+  
+  
+}
+
 ##### Currently unused ######
 save_plot<- function(table, number){
   name<- paste(c(number,OutputFname), collapse = "_")
@@ -171,14 +232,14 @@ save_plot<- function(table, number){
 ######################
 
 inmat1=as.data.frame(read.table(SumTable1Fname, sep="\t", header=TRUE, row.names=1, check.names=FALSE, quote=NULL))
-CountsMat1<-as.data.frame(inmat1[,1, drop=FALSE]) #retains row names
+CountsMat1<-as.data.frame(inmat1[,as.numeric(columnnameslist[1]), drop=FALSE]) #retains row names
 
 inmat2=as.data.frame(read.table(SumTable2Fname, sep="\t", header=TRUE, row.names=1, check.names=FALSE, quote=NULL))
-CountsMat2<-as.data.frame(inmat2[,1, drop=FALSE]) #retains row names
+CountsMat2<-as.data.frame(inmat2[,as.numeric(columnnameslist[2]), drop=FALSE]) #retains row names
 
 if (!is.null(SumTable3Fname)){
 inmat3=as.data.frame(read.table(SumTable3Fname, sep="\t", header=TRUE, row.names=1, check.names=FALSE, quote=NULL))
-CountsMat3<-as.data.frame(inmat3[,1, drop=FALSE]) #retains row names
+CountsMat3<-as.data.frame(inmat3[,as.numeric(columnnameslist[3]), drop=FALSE]) #retains row names
 }
 
 
@@ -266,25 +327,22 @@ SplitTable<- split_table(TableMerge)
 
 pdf(OutputFname, width=11, height=9.5) #open PDF writer
 
+par(mfrow=c(2,2))
+
 
 
 for (i in 2:ncol(TableMerge)){
-  cat("Reads_Summary ", "**", TableNames[i], "**", "\n", sep="")
-  print(summary(TableMerge[,i]))
+  #cat("Reads_Summary ", "**", TableNames[i], "**", "\n", sep="")
   count<- length(which(TableMerge[,i]==0))
-  cat ("Number of Zero Count Samples:", count, "\n", "\n")
+  plot_text(c(
+    #paste(TableNames[i]),
+    paste("Reads Summary **", colnames(TableMerge[i]), " **"),
+    paste("Number of zero count samples: ", count),
+    summary(TableMerge[i])))
+
+
 }
 
-p <- plot.new()
-p+text(x=.50,.50, cex=.5, c(paste("Reads_Summary ", "**", TableNames[i], "**", "\n", sep="",
-                                   "\n",
-                                 summary(TableMerge[,i]),
-                                   "\n",
-                                   "\n",
-                                   "Remaining Samples: ")))
-
-
-print(p)
 
 #Reads in a list of split tables, melts to long form, plots, then
 #saves as a barplot, incrementing the output name of the plot
@@ -300,7 +358,17 @@ for(i in 1:length(SplitTable)){
   print(Ta) #plots to PDF, each on own page
 }
 
+
+S1<- plot_bar(CountsMat1)
+S2<- plot_bar(CountsMat2)
+
+S1 + labs(title = basename(SumTable1Fname))
+S2 + labs(title = basename(SumTable2Fname))
+
+
 dev.off()
+
+
 
 cat("Done.\n");
 
