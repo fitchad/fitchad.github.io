@@ -24,6 +24,8 @@ SLIST=$DIR/Haopu.N15.SampleID
 
 #Fastq Lists, containing the SampleID and the Fastq File paths. Typically generated in pipeline QC step.
 #Can add as many as you would like, then add variable name to 'cat' command below
+#if you do not have a fastq file list(s), the easiest thing to do is run the "create_list_4.csh" script to generate one (them).
+
 FLIST1=$DIR/Fastq.H15.Test
 FLIST2=$DIR/F_Fastq.H10.Test2
 FLIST3=""
