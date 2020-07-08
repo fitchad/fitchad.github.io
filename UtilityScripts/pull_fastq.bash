@@ -8,11 +8,11 @@
 # Variables to set
 
 
-#Project ID. Used in the File Path. 
+#Project ID. Used in the File Path if necessary. 
 PJ=TEST
 
 #DIR=$PWD
-DIR=/mnt/cmmnas02/Users/fitchad/$PJ
+DIR=/media/sf_GRADS_Data/$PJ
 
 #Directory where fastq files will be copied. 
 DESTDIR=$DIR/FastqPull     #Will create below if necessary
@@ -20,20 +20,18 @@ mkdir $DESTDIR
 
 
 #List of SampleIDs to match
-SLIST=$DIR/Haopu.N15.SampleID
+SLIST=$DIR/Filename_List_Sarc_R1-R2.txt
 
 #Fastq Lists, containing the SampleID and the Fastq File paths. Typically generated in pipeline QC step.
 #Can add as many as you would like, then add variable name to 'cat' command below
-#if you do not have a fastq file list(s), the easiest thing to do is run the "create_list_4.csh" script to generate one (them).
-
-FLIST1=$DIR/Fastq.H15.Test
-FLIST2=$DIR/F_Fastq.H10.Test2
+FLIST1=$DIR/GRADS_sarc_Fastq_Pull_List_20200708.txt
+FLIST2=""
 FLIST3=""
 
 cat $FLIST1 $FLIST2 $FLIST3 > $DESTDIR/FLIST.TEMP
 
 #Output archive name root. Escaping special characters. 
-OUT=$PJ\_TEMP\_20191111
+OUT=$PJ\_Sarc\_Fastq\_20200708
 
 
 #####################################################################
@@ -81,14 +79,20 @@ else
         echo "Seems to be more unique SampleIDs then SampleIDs....this shouldn't be possible"
 fi
 
-
+#Creating unmatched sample list. awk will split filename from MatchedResults then grep with original sample list.
+awk '{n=split($NF,a,"/");print a[n]}' $DESTDIR/MatchedResults.txt | fgrep -w -v -f - $SLIST > $DESTDIR/UnmatchedSamples
 
 echo ""
-echo "Number of Unmatched Samples:" $(awk '{ print $1 }' $DESTDIR/MatchedResults.txt | fgrep -w -v -f - $SLIST | wc -l)
-echo "Unmatched SampleIDs:"
-awk '{ print $1 }' $DESTDIR/MatchedResults.txt | fgrep -w -v -f - $SLIST
-awk '{ print $1 }' $DESTDIR/MatchedResults.txt | fgrep -w -v -f - $SLIST > $DESTDIR/UnmatchedSamples
+echo "Number of Unmatched Samples: " $(grep -vc ^$ $DESTDIR/UnmatchedSamples)
+#grep to remove blank lines from UnmatchedSamples
+echo "Unmatched SampleIDs (first 100):"
+head -n100 $DESTDIR/UnmatchedSamples
 echo ""
+
+#awk '{ print $1 }' $DESTDIR/MatchedResults.txt | fgrep -w -v -f - $SLIST > $DESTDIR/UnmatchedSamples
+#echo "Number of Unmatched Samples:" $(awk '{ print $1 }' $DESTDIR/MatchedResults.txt | fgrep -w -v -f - $SLIST | wc -l)
+#awk '{ print $1 }' $DESTDIR/MatchedResults.txt | fgrep -w -v -f - $SLIST
+
 
 
 ### User input for continuation of copy based on matched / unmatched SampleIDs
