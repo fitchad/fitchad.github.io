@@ -13,12 +13,11 @@ a .csv file.
 
 
 To do:
-1. {DONE} Have the program parse part of a name to use as dictionary key
-2. Make this work for every column. User will set an ID column to merge
+1. Make this work for every column. User will set an ID column to merge
 on. Program will then take each column, create a list of metadata separated
 by semicolons, and separate each metadata column by commas.
-3. {DONE} How to handle missing data. inserts empty value. 
-4. Implement regex matching.
+2. Handle extra commas ,,,,, 
+3. Implement regex matching.
 
 
 
@@ -49,39 +48,68 @@ def get_args():
     '''This function parses and return arguments passed in'''
     # Help Document Descriptions
     parser = argparse.ArgumentParser(
-        description='')
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        description=('''\
+This script will take a .csv file and combine all values for a given key value into a list.
+The key values must be in the first column. The values in the first column can be parsed 
+to create a key by supplying a delimiter and field number.
+
+An example usage:
+0159.PersonA.Date1.STOOL,R1.STOOL.Fastq 
+0159.PersonB.Date1.STOOL,R2.STOOL.Fastq
+0159.PersonA.Date1.STOOL,R2.STOOL.Fastq
+0159.PersonA.Date1.OW,R1.OW.Fastq
+
+With default selections, this script will combine all matching values in column 1 to create a file:
+
+0159.PersonA.Date1.STOOL,R1.STOOL.Fastq,R2.STOOL.Fastq
+0159.PersonB.Date1.STOOL,R2.STOOL.Fastq
+0159.PersonA.Date1.OW,R1.OW.Fastq
+
+If supplying options -f 2 -d ., column 1 will be parsed to
+PersonA and PersonB
+
+and then output will be:
+
+PersonA,R1.STOOL.Fastq,R2.STOOL.Fastq,R1.OW.Fastq
+PersonB,R2.STOOL.Fastq
+
+Duplicate values are removed but can be preserved with the -D flag. 
+'''
+        ))
     # Add arguments
     parser.add_argument(
-        '-l', '--fastqlist', type=str, help='location of .tsv fastq file list', required=True, default=None)
-    parser.add_argument('-f', '--field', type = int, help = 'field to use as key from filename, numbering starting from 1', required=False)
-    parser.add_argument('-d', '--delimiter', type=str, help='delimiter character', required=False)    
+        '-f', '--datafile', type=str, help='location of .csv data file', required=True, default=None)
+    parser.add_argument('-n', '--fieldnumber', type = int, help = 'field in first column to use as key, numbering starting from 1  (eg 0000.AAAA.20200101.STOOL has fields 1.2.3.4)', required=False)
+    parser.add_argument('-d', '--delimiter', type=str, help='delimiter character used when parsing fields in first column for key', required=False)    
     parser.add_argument('-D', '--Duplicated', help = 'if set, will keep duplicate values', required=False, default=False, action='store_true')
     parser.add_argument(
-        '-o', '--outputfile', type=str, help='location file to write output. default is "concat_file.csv" in current dir', required=False, default=cwd+"/concat_file.csv")
+        '-o', '--outputfile', type=str, help='name of output file. default is "concat_file.csv" in current dir', required=False, default=cwd+"/concat_file.csv")
     # Array for all arguments passed to script
     args = parser.parse_args()
     
     # Assign args to variables
-    fastqlist = args.fastqlist
-    field=args.field
+    datafile = args.datafile
+    fieldnumber=args.fieldnumber
     delimiter=args.delimiter
     Duplicated=args.Duplicated
     outputfile=args.outputfile
     # Return all variable values
-    return fastqlist, field, delimiter, Duplicated, outputfile
+    return datafile, fieldnumber, delimiter, Duplicated, outputfile
 
 
 # Match return values from get_arguments()
 # and assign to their respective variables
-fastqlist, field, delimiter, Duplicated, outputfile = get_args()
+datafile, fieldnumber, delimiter, Duplicated, outputfile = get_args()
 
 
 parse=False
-if field:
+if fieldnumber:
     
     parse = True
     #parse = parse - 1
-    parse_field = field-1
+    parse_field = fieldnumber-1
+
 
 
 ## Variables ##
@@ -107,9 +135,9 @@ def table_dict_to_csv(output, dictionary):
 
 ### Main Program ###
 
-with open(fastqlist) as inputSheet:
+with open(datafile) as inputSheet:
     for item in inputSheet:
-
+        if not item.strip(): continue
         if parse: #parse out key value from names in first column
             row_items=item.strip("\n")
             list_length = len(row_items) #number of columns
