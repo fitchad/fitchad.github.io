@@ -1,6 +1,23 @@
 #!/usr/bin/python
 # -*- coding: utf-8 -*-
 """
+Created on Thu Oct  8 13:53:57 2020
+
+@author: acf
+"""
+import numpy as np
+
+#selecting row by number (includes header)
+#df.iloc[1]
+
+#selecting column by name
+#df.loc[:,'MouseNumber']
+
+#print column with index 1
+#df.iloc[:,1]
+
+
+"""
 Created on Wed Jul  8 13:02:12 2020
 
 This program will take an input file of columns, scan through
@@ -13,6 +30,10 @@ a .csv file.
 
 
 To do:
+1. Handle the header line. Necessary for column selection by pandas(at this point)
+but messes up the parsing of lines for keys. can either remove header for parsing
+or use indexes instead of header? 
+
 1. Make this work for every column. User will set an ID column to merge
 on. Program will then take each column, create a list of metadata separated
 by semicolons, and separate each metadata column by commas.
@@ -37,7 +58,7 @@ import os
 import csv
 import argparse
 import sys
-
+import pandas as pd
 
 cwd=os.getcwd()
 
@@ -83,6 +104,7 @@ Duplicate values are removed but can be preserved with the -D flag.
     parser.add_argument('-n', '--fieldnumber', type = int, help = 'field in first column to use as key, numbering starting from 1  (eg 0000.AAAA.20200101.STOOL has fields 1.2.3.4)', required=False)
     parser.add_argument('-d', '--delimiter', type=str, help='delimiter character used when parsing fields in first column for key', required=False)    
     parser.add_argument('-D', '--Duplicated', help = 'if set, will keep duplicate values', required=False, default=False, action='store_true')
+    parser.add_argument('-c', '--columns', type=str, help="list the column names, in order, to rearrange sheet", required=False)    
     parser.add_argument(
         '-o', '--outputfile', type=str, help='name of output file. default is "concat_file.csv" in current dir', required=False, default=cwd+"/concat_file.csv")
     # Array for all arguments passed to script
@@ -93,14 +115,15 @@ Duplicate values are removed but can be preserved with the -D flag.
     fieldnumber=args.fieldnumber
     delimiter=args.delimiter
     Duplicated=args.Duplicated
+    columns=args.columns
     outputfile=args.outputfile
     # Return all variable values
-    return datafile, fieldnumber, delimiter, Duplicated, outputfile
+    return datafile, fieldnumber, delimiter, Duplicated, columns, outputfile
 
 
 # Match return values from get_arguments()
 # and assign to their respective variables
-datafile, fieldnumber, delimiter, Duplicated, outputfile = get_args()
+datafile, fieldnumber, delimiter, Duplicated, columns, outputfile = get_args()
 
 
 parse=False
@@ -114,6 +137,18 @@ if fieldnumber:
 ## Variables ##
 
 fdictionary = defaultdict(list)
+
+
+
+if columns:
+    df=pd.read_csv(datafile, header=0, sep=',')
+    column_split=columns.strip('[]').split(",")
+    col_set=[]
+    print(df)
+    cut_df=df[column_split].copy()
+    print(cut_df)
+    cut_df.to_csv('temp.csv',index=False)
+    datafile='temp.csv'
 
 
 
@@ -133,9 +168,17 @@ def table_dict_to_csv(output, dictionary):
 
 ### Main Program ###
 
+
+
+
+#print(inputSheet2)
+#print(type(inputSheet2))
+#inputSheet=csv.reader(inputSheet2)
+
+
 with open(datafile) as inputSheet:
 
-    for item in inputSheet:
+    for item in inputSheet.readlines()[1:]: #this skips the header line
         if not item.strip(): continue #skip empty rows
         if parse: #parse out key value from names in first column
             row_items=item.strip("\n")
@@ -161,11 +204,11 @@ with open(datafile) as inputSheet:
                         clean_item=item.strip('\n')
                         if Duplicated:
                              fdictionary[sample_key_parse[parse_field]].append(clean_item)
-
+    
                         #print clean_item
                         elif clean_item not in fdictionary[sample_key_parse[parse_field]]:
                             fdictionary[sample_key_parse[parse_field]].append(clean_item)
-
+    
         
      
         
@@ -177,11 +220,11 @@ with open(datafile) as inputSheet:
             items = item.strip().split(",")
             fdictionary[items[0]] += items[1:]
             '''     
-
+    
                 
             A=item.strip("\n").split(",") #"\t"
             list_length = len(A)
-
+    
             sample_key = A[0]
                
             if sample_key not in fdictionary.keys():
@@ -203,8 +246,8 @@ with open(datafile) as inputSheet:
                             fdictionary[sample_key].append(clean_item)
                         elif clean_item not in fdictionary[sample_key]:
                             fdictionary[sample_key].append(clean_item)
-
-
-            
+    
+    
+                
 
 table_dict_to_csv(outputfile, fdictionary)

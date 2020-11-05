@@ -2,7 +2,7 @@
 
 #Author: Adam Fitch
 
-#Last Edit : 3/20/19 4pm
+#Last Edit : 10/5/20 1pm
 
 library("ggplot2");
 library("vegan")
@@ -15,7 +15,7 @@ options(useFancyQuotes = F);
 
 #TO DO:
 #1. output - get directory
-
+#. dfdfdff
 
 ########################
 ###### Parameters ######
@@ -90,7 +90,7 @@ if(!length(opt$diversity)){
 
 
 if(!length(opt$outputfilename)){
-  OutputFname=basename(opt$summarytable1)
+  OutputFname=tools::file_path_sans_ext(opt$summarytable1)
   OutputFname=gsub(".csv", "", OutputFname);
 }else{
   OutputFname=opt$outputfilename;
@@ -126,7 +126,7 @@ cat("\n")
 ######################
 
 inmat1=as.data.frame(read.table(SumTable1Fname, sep="\t", header=TRUE, row.names=1, check.names=FALSE, quote=NULL))
-inmat1_no_totals<-as.data.frame(inmat1[,2:ncol(inmat1), drop=FALSE]) #retains row names
+#inmat1_no_totals<-as.data.frame(inmat1[,2:ncol(inmat1), drop=FALSE]) #retains row names
 
 #inmat2=as.data.frame(read.table(FactorsFname, sep="\t", header=TRUE, row.names=1, check.names=FALSE, quote=NULL))
 #CountsMat2<-as.data.frame(inmat2[,1, drop=FALSE]) #retains row names
@@ -147,6 +147,44 @@ NumberColumnsMeta <- ncol(FactorsFile)
 cat("Retaining Factors Columns:", "\n")
 print(colnames(FactorsFile))
 cat("\n")
+
+summarytable_sample_names=rownames(inmat1)
+factor_sample_names=rownames(FactorsFile)
+
+############### From KL Permanova.r script #####################################
+# Confirm/Reconcile that the samples in the matrix and factors file match
+cat("SummaryTable Samples:\n");
+print(summarytable_sample_names);
+cat("\n");
+cat("Factor Samples:\n");
+print(factor_sample_names);
+
+num_factor_samples=length(factor_sample_names);
+num_summarytable_samples=length(summarytable_sample_names);
+
+common_sample_names=intersect(summarytable_sample_names, factor_sample_names);
+num_common_samples=length(common_sample_names);
+if(num_common_samples < num_summarytable_samples || num_common_samples < num_factor_samples){
+        cat("\n");
+        cat("*** Warning: The number of samples in factors file does not match those in your distance\n");
+        cat("Taking intersection (common) sample IDs between both.\n");
+        cat("Please confirm this is what you want.\n");
+        cat("\tNum SummaryTable Samples: ", num_summarytable_samples, "\n");
+       cat("\tNum Factor  Samples: ", num_factor_samples, "\n");
+        cat("\tNum Common  Samples: ", num_common_samples, "\n");
+        cat("\n");
+}
+
+
+# Set the working distance matrix to the same order
+inmat1=inmat1[common_sample_names, , drop=F];
+inmat1_no_totals<-as.data.frame(inmat1[,2:ncol(inmat1), drop=FALSE]) #retains row names
+
+FactorsFile=FactorsFile[common_sample_names, , drop=F];
+
+print(FactorsFile)
+#print(inmat1_no_totals)
+
 
 ##########################
 ### Diversity Calcs ######
@@ -186,9 +224,9 @@ if (DiversityM =="All"){
 plot_table<- function(df, X,Y){
   #f_c <- as.character(colnames(df[X]))
   plotted_table <- ggplot(df, aes(x=df[,X], y=df[,Y], color=df[,X]))+
-    geom_boxplot(outlier.shape=NA)+
+    geom_boxplot(outlier.shape=NA, aes(alpha=0.5, fill=df[,X]))+
     geom_jitter(position=position_jitter(0.1), shape=1, color="black", size=2)+
-    scale_fill_manual(value = c("blue", "red"))+
+#    scale_fill_manual(value = c("blue", "red"))+
     labs(title="", x=colnames(df[X]), y=colnames(df[Y]),color=colnames(df[X]))
     
   return(plotted_table);
@@ -232,7 +270,8 @@ dev.off()
 
 
 ##Write out .csv of all alpha diversity metrics
-OutputFname=paste(OutputFname, ".alpha.diversity.csv", sep="")
+OutputFname=tools::file_path_sans_ext(OutputFname)
+OutputFname=paste(OutputFname, ".csv", sep="")
 print(OutputFname)
 write.csv(merged_df, file=OutputFname, row.names = FALSE)
 
