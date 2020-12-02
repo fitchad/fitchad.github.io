@@ -1,8 +1,8 @@
 #!/usr/bin/env Rscript
 
-#Author: Adam Fitch
-
 #Last Edit : 10/5/20 1pm
+
+#Author: Adam Fitch
 
 library("ggplot2");
 library("vegan")
