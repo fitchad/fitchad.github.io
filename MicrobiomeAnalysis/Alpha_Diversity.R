@@ -228,6 +228,7 @@ plot_table<- function(df, X,Y){
     geom_jitter(position=position_jitter(0.1), shape=1, color="black", size=2)+
 #    scale_fill_manual(value = c("blue", "red"))+
     labs(title="", x=colnames(df[X]), y=colnames(df[Y]),color=colnames(df[X]))
+#	guides(fill=guide_legend("Sort_Status")
     
   return(plotted_table);
   
