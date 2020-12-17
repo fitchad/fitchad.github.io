@@ -60,8 +60,6 @@ def get_args():
     parser.add_argument(
         '-u', '--unmatchedBCs', help='Print out barcodes that were not matched to the barcode list', required=False, default=False, action='store_true')
     parser.add_argument(
-        '-v', '--verbose', help='Print out counter', required=False, default=False, action='store_true')
-    parser.add_argument(
         '-o', '--outputfile', type=str, help='location of output file. Default is working dir/BarcodesFromUndetermined.txt', required=False, default = cwd+"/BarcodesFromUndetermined.txt")
     # Array for all arguments passed to script
     args = parser.parse_args()
@@ -73,13 +71,12 @@ def get_args():
     BCcount=args.BCcount
     outputfile = args.outputfile
     unmatchedBCs = args.unmatchedBCs
-    verbose = args.verbose
     # Return all variable values
-    return fastqfile, fastqfile2, BClist, outputfile, BCcolumn, BCcount, unmatchedBCs, verbose
+    return fastqfile, fastqfile2, BClist, outputfile, BCcolumn, BCcount, unmatchedBCs
 
 # Match return values from get_arguments()
 # and assign to their respective variables
-fastqfile, fastqfile2, BClist, outputfile, BCcolumn, BCcount, unmatchedBCs, verbose = get_args()
+fastqfile, fastqfile2, BClist, outputfile, BCcolumn, BCcount, unmatchedBCs = get_args()
 
 
 BCcolumn = BCcolumn-1
@@ -113,9 +110,6 @@ with open (fastqfile, 'r') as F:
 
 
 #pattern = '1:N:0:(\w+\+\w+)$' #for dual barcodes from Basespace
-if verbose:
-  newSeqMatch = '^@M0'
-  countMatch = re.compile(newSeqMatch)
 
 ## Variables
 tempList = []
@@ -151,26 +145,20 @@ def table_dict_to_csv(output, dictionary):
 counter = 0
 if not fastqfile2:
     with open(fastqfile, 'rb') as FASTQ:
-      if verbose:
-          for i, l in enumerate(FASTQ):
+        for i, l in enumerate(FASTQ):
             pass
-          linesInFile = i+1
-          counter = linesInFile/4
+        linesInFile = i+1
+        counter = linesInFile/4
 
-          print "Total Reads in File: " + str(linesInFile)
-          FASTQ.seek(0)
-      for line in FASTQ:
-              if verbose:
-                n = re.findall(countMatch, line)
-                if n:
-                  counter = counter - 1
-                if counter % 500000 == 0:
-                  print "Remaining Sequences: " + str(counter)
-    
+        print "Total Reads in File: " + str(counter)
+        FASTQ.seek(0)
+        for line in FASTQ:
               m = re.findall(lineMatch,line)
               if m:
                 m2 = m[0]
-    
+                counter=counter-1
+                if counter % 500000 == 0:
+                    print "Remaining Sequences: " + str(counter)
                 matchDict[m2]=matchDict.get(m2,0)+1
 
 if fastqfile2:
@@ -178,8 +166,16 @@ if fastqfile2:
         keyF1 = ""
         valueF1 = ""
         boolmatch = 0
-        for line in FASTQ:
-    
+        for i, l in enumerate(FASTQ):
+                pass
+        linesInFile = i+1
+        counter = linesInFile/4
+
+        print "Total Reads in File: " + str(counter)
+        FASTQ.seek(0)
+              
+        for line in FASTQ:        
+   
             if (boolmatch==1):
                 if re.search('^([A,C,T,G,N]{8,12})$', line):
                     b= re.findall('^([A,C,T,G,N]{8,12})$', line)
@@ -215,9 +211,13 @@ if fastqfile2:
 
                 
     for values in matchDict2BCs:
-        TempList = matchDict2BCs[values]
-        x= TempList[0] + "+" + TempList[1]
-        matchDict[x]=matchDict.get(x,0)+1
+       counter=counter-1
+       if counter % 500000 == 0:
+           print "Remaining Sequences: " + str(counter)
+
+       TempList = matchDict2BCs[values]
+       x= TempList[0] + "+" + TempList[1]
+       matchDict[x]=matchDict.get(x,0)+1
 
 
 
