@@ -6,7 +6,7 @@
 #Goals of Script
 #Merge a list of sampleIDs and a metadata file
 #To Do
-#1. Fix Both join, still givinig a Left join when selected. 
+#1. Fix Both join, still giving a Left join when selected. 
 #2. Add an output list of discarded rows
 
 #Last Edit : 12/3/20 4pm

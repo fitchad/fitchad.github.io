@@ -2,12 +2,16 @@
 # -*- coding: utf-8 -*-
 """
 Created on Wed Jul  8 13:02:12 2020
+Updated on 12/17/20
 
-This program will take an input file of columns, scan through
-the first column and add the unique values as keys in a dictionary.
-Then it will go through each column of data and add the unique values
-in each column as values to the key from the first column ignoring
-any duplicate values. It will then save the resulting dictionary into
+This program will take an input file of columns and add the unique values 
+of the first column as keys in a dictionary. After adding a key, 
+it will go through the remaining row of data and add the unique values
+in the row as values to the key from the first column
+If a key in the first column is already present as a dictionary key
+it will add its values to the existing key. 
+
+It will then save the resulting dictionary into
 a .csv file. 
 
 
@@ -22,27 +26,21 @@ by semicolons, and separate each metadata column by commas.
 
 
 
-Parsing is designed to parse an ID in the first column and pull out a field (same field in each),
-then use that field as a key. 
+Parsing is designed to parse a key value from the first column, pulling out a field (same field in each),
+from the first column then using that field value as a key. 
 If you don't use the parse option, then the program will assume the first column
-is the key value. 
+is the key. 
 
 
 @author: acf
 """
 
 from collections import defaultdict
-#import re
 import os
 import csv
 import argparse
-import sys
-
 
 cwd=os.getcwd()
-
-
-
 
 def get_args():
     '''This function parses and return arguments passed in'''
@@ -74,15 +72,25 @@ and then output will be:
 PersonA,R1.STOOL.Fastq,R2.STOOL.Fastq,R1.OW.Fastq
 PersonB,R2.STOOL.Fastq
 
-Duplicate values are removed but can be preserved with the -D flag. 
+If supplying -f 2 -d . and -R, output will be:
+PersonA,0159.PersonA.Date1.STOOL,R1.STOOL.Fastq,R2.STOOL.Fastq,R1.OW.Fastq
+PersonB,0159.PersonB.Date1.STOOL,R2.STOOL.Fastq
+
+Duplicate values for a given key are not entered by default 
+but can be preserved with the -D flag. 
+
+Values for each key can be sorted prior to writing to the .csv 
+by using the -S flag
 '''
         ))
     # Add arguments
     parser.add_argument(
         '-f', '--datafile', type=str, help='location of .csv data file', required=True, default=None)
-    parser.add_argument('-n', '--fieldnumber', type = int, help = 'field in first column to use as key, numbering starting from 1  (eg 0000.AAAA.20200101.STOOL has fields 1.2.3.4)', required=False)
-    parser.add_argument('-d', '--delimiter', type=str, help='delimiter character used when parsing fields in first column for key', required=False)    
-    parser.add_argument('-D', '--Duplicated', help = 'if set, will keep duplicate values', required=False, default=False, action='store_true')
+    parser.add_argument('-n', '--fieldnumber', type=int, help='field in first column to use as key, numbering starting from 1  (eg 0000.AAAA.20200101.STOOL has fields 1.2.3.4)', required=False)
+    parser.add_argument('-d', '--delimiter', type=str, help='delimiter character used when parsing key from first column', required=False)
+    parser.add_argument('-R', '--Retain', help='when parsing key from col1 value, the full col1 value will be kept as first entry to key', required=False, default=False, action='store_true')    
+    parser.add_argument('-D', '--Duplicated', help='keep duplicated values', required=False, default=False, action='store_true')
+    parser.add_argument('-S', '--Sort', help='sort values prior to writing to csv', required=False, default=False, action='store_true')
     parser.add_argument(
         '-o', '--outputfile', type=str, help='name of output file. default is "concat_file.csv" in current dir', required=False, default=cwd+"/concat_file.csv")
     # Array for all arguments passed to script
@@ -92,44 +100,33 @@ Duplicate values are removed but can be preserved with the -D flag.
     datafile = args.datafile
     fieldnumber=args.fieldnumber
     delimiter=args.delimiter
+    Retain=args.Retain
     Duplicated=args.Duplicated
+    Sort=args.Sort
     outputfile=args.outputfile
     # Return all variable values
-    return datafile, fieldnumber, delimiter, Duplicated, outputfile
+    return datafile, fieldnumber, delimiter, Retain, Duplicated, Sort, outputfile
 
 
 # Match return values from get_arguments()
 # and assign to their respective variables
-datafile, fieldnumber, delimiter, Duplicated, outputfile = get_args()
+datafile, fieldnumber, delimiter, Retain, Duplicated, Sort, outputfile = get_args()
 
 
 parse=False
-if fieldnumber:
-    
+if fieldnumber:   
     parse = True
-    #parse = parse - 1
     parse_field = fieldnumber-1
+
+if Retain:
+    start_val=0
+else:
+    start_val=1
 
 
 ## Variables ##
 
 fdictionary = defaultdict(list)
-
-
-
-## Functions ##
-
-def table_dict_to_csv(output, dictionary):
-    with open(output, 'wb') as f:  # Just use 'w' mode in 3.x
-        w = csv.writer(f, delimiter=",")
-        #w = csv.writer(sys.stderr) #for debugging, prints to stdout
-        for key, values in dictionary.iteritems():
-            templist = []
-            templist.append(key)
-            for val in values: # this approach removes brackets in output
-                templist.append(val)
-            w.writerow(templist)
-            
 
 ### Main Program ###
 
@@ -143,13 +140,11 @@ with open(datafile) as inputSheet:
             
             row_items_split = row_items.split(",") #split row
             sample_key = row_items_split[0] # get first item from split row
-            #print sample_key
             sample_key_parse = sample_key.split(delimiter) # split first item by delimiter
-            #print sample_key_parse
             if sample_key_parse[parse_field] not in fdictionary.keys():
                 fdictionary[sample_key_parse[parse_field]]=[]
-                if list_length > 1:
-                    for item in row_items_split[1:list_length]:
+                if list_length > 1:                        
+                    for item in row_items_split[start_val:list_length]:
                        clean_item=item.strip('\n')
                        if Duplicated:
                            fdictionary[sample_key_parse[parse_field]].append(clean_item)
@@ -157,17 +152,15 @@ with open(datafile) as inputSheet:
                             fdictionary[sample_key_parse[parse_field]].append(clean_item)
             else:
                  if list_length > 1:               
-                    for item in row_items_split[1:list_length]:
+                    for item in row_items_split[start_val:list_length]:
                         clean_item=item.strip('\n')
                         if Duplicated:
                              fdictionary[sample_key_parse[parse_field]].append(clean_item)
-
-                        #print clean_item
+                             
                         elif clean_item not in fdictionary[sample_key_parse[parse_field]]:
                             fdictionary[sample_key_parse[parse_field]].append(clean_item)
 
-        
-     
+            
         
         else: # no parsing of key from name
             
@@ -178,7 +171,6 @@ with open(datafile) as inputSheet:
             fdictionary[items[0]] += items[1:]
             '''     
 
-                
             A=item.strip("\n").split(",") #"\t"
             list_length = len(A)
 
@@ -204,7 +196,18 @@ with open(datafile) as inputSheet:
                         elif clean_item not in fdictionary[sample_key]:
                             fdictionary[sample_key].append(clean_item)
 
-
-            
-
-table_dict_to_csv(outputfile, fdictionary)
+#### writing output ####
+with open(outputfile, 'wb') as f:  # Just set 'w' mode in 3.x
+    w = csv.writer(f, delimiter=",")
+        #w = csv.writer(sys.stderr) #for debugging, prints to stdout
+    for key, values in fdictionary.iteritems():
+        templist=[]
+        templist2=[]
+        templist.append(key)
+        for val in values: # this approach removes brackets in output
+            templist2.append(val)
+        if Sort:
+            templist2.sort()
+        for val2 in templist2:
+            templist.append(val2)
+        w.writerow(templist)
