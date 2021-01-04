@@ -3,7 +3,7 @@
 # -*- coding: utf-8 -*-
 """
 
-Updated 10/10/2019
+Updated 01/04/2021
 
 @author: acf
 
@@ -29,15 +29,14 @@ BC1 is I1, BC2 is I2. Also keep in mind the orientation of the barcode sequence.
 '''
 To Add:
 
-2. make it work for dual barcodes - input cols, barcode matching
 3. Save to file
+4. Make two fastq file input and single fastq file input cohesive
 '''
 
 import re
 import os
 import csv
 import argparse
-import sys
 
 cwd=os.getcwd()
 
@@ -81,6 +80,7 @@ fastqfile, fastqfile2, BClist, outputfile, BCcolumn, BCcount, unmatchedBCs = get
 
 BCcolumn = BCcolumn-1
 
+OutputFile=outputfile
 
 #Logic to determine file type (Index or Basespace R1/2).
 with open (fastqfile, 'r') as F:
@@ -113,9 +113,10 @@ with open (fastqfile, 'r') as F:
 
 ## Variables
 tempList = []
-matchDict = {}
-matchDict2BCs = {}
-#matchDict2 = {}
+barcodeCountsDict = {}
+barcodeCountsDict2BCs = {}
+barcodeCountsDictMatchedListOnly = {}
+barcodeCountsDictUnmatchedOnly = {}
 matchedBC = []
 deleteList = []
 lineMatch = re.compile(pattern)
@@ -126,8 +127,8 @@ lineMatch = re.compile(pattern)
 #######################
 def table_dict_to_csv(output, dictionary):
     with open(output, 'wb') as f:  # Just use 'w' mode in 3.x
-        #w = csv.writer(f, delimiter=",")
-        w = csv.writer(sys.stderr) #for debugging, prints to stdout
+        w = csv.writer(f, delimiter=",")
+        #w = csv.writer(sys.stderr) #for debugging, prints to stdout
         w.writerow(["BarcodeSet","Count"]) #writes header row
         for key, values in dictionary.iteritems():
             templist = []
@@ -145,9 +146,9 @@ def table_dict_to_csv(output, dictionary):
 counter = 0
 if not fastqfile2:
     with open(fastqfile, 'rb') as FASTQ:
-        for i, l in enumerate(FASTQ):
+        for i, l in enumerate(FASTQ,1):
             pass
-        linesInFile = i+1
+        linesInFile = i
         counter = linesInFile/4
 
         print "Total Reads in File: " + str(counter)
@@ -159,16 +160,16 @@ if not fastqfile2:
                 counter=counter-1
                 if counter % 500000 == 0:
                     print "Remaining Sequences: " + str(counter)
-                matchDict[m2]=matchDict.get(m2,0)+1
+                barcodeCountsDict[m2]=barcodeCountsDict.get(m2,0)+1
 
 if fastqfile2:
     with open(fastqfile, 'r') as FASTQ:
         keyF1 = ""
         valueF1 = ""
         boolmatch = 0
-        for i, l in enumerate(FASTQ):
+        for i, l in enumerate(FASTQ,1):
                 pass
-        linesInFile = i+1
+        linesInFile = i
         counter = linesInFile/4
 
         print "Total Reads in File: " + str(counter)
@@ -181,7 +182,7 @@ if fastqfile2:
                     b= re.findall('^([A,C,T,G,N]{8,12})$', line)
                     valueF1 = b[0]
     
-                    matchDict2BCs[keyF1]=[valueF1]
+                    barcodeCountsDict2BCs[keyF1]=[valueF1]
                     boolmatch = 0
             if re.search('^(@M[^ ]*)', line) and boolmatch==0:
                 boolmatch = 1
@@ -195,12 +196,12 @@ if fastqfile2:
         for line in FASTQ2:
             if keyF2 is "":
                 exit
-            elif matchDict2BCs[keyF2]:
+            elif barcodeCountsDict2BCs[keyF2]:
                 if (boolmatch==1):
                     if re.search('^([A,C,T,G,N]{8,12})$', line):
                         b= re.findall('^([A,C,T,G,N]{8,12})$', line)
                         valueF2 = b[0]
-                        matchDict2BCs[keyF2].append(valueF2)
+                        barcodeCountsDict2BCs[keyF2].append(valueF2)
                         boolmatch = 0
                         keyF2 = ""
                 
@@ -210,54 +211,66 @@ if fastqfile2:
                 keyF2 = m[0]
 
                 
-    for values in matchDict2BCs:
+    for values in barcodeCountsDict2BCs:
        counter=counter-1
        if counter % 500000 == 0:
            print "Remaining Sequences: " + str(counter)
 
-       TempList = matchDict2BCs[values]
+       TempList = barcodeCountsDict2BCs[values]
        x= TempList[0] + "+" + TempList[1]
-       matchDict[x]=matchDict.get(x,0)+1
+       barcodeCountsDict[x]=barcodeCountsDict.get(x,0)+1
 
 
-
+### Operations on the final barcodeCountsDict
 
 #Creates a delete list for barcodes with less than defined count
 if BCcount:
-    for key, value in matchDict.iteritems():
+    for key, value in barcodeCountsDict.iteritems():
         if value < BCcount:
             deleteList.append(key)            
 #Deletes the dictionary entries with less than defined count
     for item in deleteList:
-        if item in matchDict:
-            del matchDict[item]
+        if item in barcodeCountsDict:
+            del barcodeCountsDict[item]
 
-#Matches dictionary of barcode counts against a list of barcodes.
+#Matches dictionary of barcode counts against a list of barcodes, printing matches 
+#to screen.
 if BClist:
     with open(BClist, 'rb') as BCList:
+
         print "Matches to Barcode List:"
         for line in BCList:
     
             barcode = line.split("\t")[BCcolumn]
             barcode = barcode.strip()
             #print barcode
-            if barcode in matchDict.viewkeys():
+            if barcode in barcodeCountsDict.viewkeys():
                 line = line.strip()
-                print line, "\t", matchDict[barcode]
+                print line, "\t", barcodeCountsDict[barcode]
                 matchedBC.append(barcode) # creates a list of matchedBCs
+        
+'''# for printing matches to a file.   
+        barcodeCountsDictMatchedListOnly = barcodeCountsDict.copy()
+        unmatchedBC=[]  
+        
+        for barcodeD in barcodeCountsDictMatchedListOnly.viewkeys():
+            if barcodeD not in matchedBC:
+                unmatchedBC.append(barcodeD)
+        for barcodeD in unmatchedBC:
+            del barcodeCountsDictMatchedListOnly[barcodeD]
+        table_dict_to_csv(OutputFile, barcodeCountsDictMatchedListOnly)
+'''
+                
             
 #Deletes matched barcodes (ie retains only barcodes not matched to provided list)
+#and prints the unmatched barcodes / counts
 if unmatchedBCs:
     for barcode in matchedBC:
-        if barcode in matchDict.viewkeys():
-            del matchDict[barcode]
+        if barcode in barcodeCountsDict.viewkeys():
+            del barcodeCountsDict[barcode]
     print "Barcodes Not Matched to List: "
-    for key, val in matchDict.items():
+    for key, val in barcodeCountsDict.items():
         print key, "\t", val
 
 
-#write out barcode matches and counts to a csv file
-#Need to update code. Only outputs remaining BCs in matchdict, after deleting matches
-#to the barcode list. Probably need to save barcode matches as tuples in a list and 
-#then output those if they exist. 
-#table_dict_to_csv(outputfile, matchDict)
+

@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 """
 Created on Wed Jul  8 13:02:12 2020
-Updated on 12/17/20
+Updated on 01/04/21
 
 This program will take an input file of columns and add the unique values 
 of the first column as keys in a dictionary. After adding a key, 
@@ -28,7 +28,7 @@ by semicolons, and separate each metadata column by commas.
 
 Parsing is designed to parse a key value from the first column, pulling out a field (same field in each),
 from the first column then using that field value as a key. 
-If you don't use the parse option, then the program will assume the first column
+If you don't use the parse option, then the program will assume the full value in the first column
 is the key. 
 
 
@@ -39,6 +39,7 @@ from collections import defaultdict
 import os
 import csv
 import argparse
+import re
 
 cwd=os.getcwd()
 
@@ -48,9 +49,11 @@ def get_args():
     parser = argparse.ArgumentParser(
         formatter_class=argparse.RawDescriptionHelpFormatter,
         description=('''\
-This script will take a .csv file and combine all values for a given key value into a list.
+This script will take a CSV or TSV file and combine all values for a given key value into a list.
 The key values must be in the first column. The values in the first column can be parsed 
 to create a key by supplying a delimiter and field number.
+There is some basic logic (i.e. counting the number of commas or tabs) used to
+determine the file type. Output filetype is the same as input. 
 
 An example usage:
 0159.PersonA.Date1.STOOL,R1.STOOL.Fastq 
@@ -64,7 +67,7 @@ With default selections, this script will combine all matching values in column 
 0159.PersonB.Date1.STOOL,R2.STOOL.Fastq
 0159.PersonA.Date1.OW,R1.OW.Fastq
 
-If supplying options -f 2 -d ., column 1 will be parsed to
+If supplying options -n 2 -d ., column 1 will be parsed to
 PersonA and PersonB
 
 and then output will be:
@@ -72,11 +75,13 @@ and then output will be:
 PersonA,R1.STOOL.Fastq,R2.STOOL.Fastq,R1.OW.Fastq
 PersonB,R2.STOOL.Fastq
 
-If supplying -f 2 -d . and -R, output will be:
-PersonA,0159.PersonA.Date1.STOOL,R1.STOOL.Fastq,R2.STOOL.Fastq,R1.OW.Fastq
+If supplying -n 2 -d . and -R, the full column 1 will be retained as output after parsing:
+
+PersonA,0159.PersonA.Date1.STOOL,R1.STOOL.Fastq,R2.STOOL.Fastq,0159.PersonA.Date1.OW,R1.OW.Fastq
 PersonB,0159.PersonB.Date1.STOOL,R2.STOOL.Fastq
 
-Duplicate values for a given key are not entered by default 
+
+Duplicate values for a given key are discarded by default 
 but can be preserved with the -D flag. 
 
 Values for each key can be sorted prior to writing to the .csv 
@@ -92,7 +97,7 @@ by using the -S flag
     parser.add_argument('-D', '--Duplicated', help='keep duplicated values', required=False, default=False, action='store_true')
     parser.add_argument('-S', '--Sort', help='sort values prior to writing to csv', required=False, default=False, action='store_true')
     parser.add_argument(
-        '-o', '--outputfile', type=str, help='name of output file. default is "concat_file.csv" in current dir', required=False, default=cwd+"/concat_file.csv")
+        '-o', '--outputfile', type=str, help='name of output file. default is "joined_file_by_key.csv" in current dir', required=False, default=cwd+"/joined_file_by_key.csv")
     # Array for all arguments passed to script
     args = parser.parse_args()
     
@@ -124,9 +129,55 @@ else:
     start_val=1
 
 
+
+
+#Logic to determine file type (csv or tsv).
+with open (datafile, 'r') as F:
+    
+    for i, l in enumerate(F,1):
+                pass
+    F.seek(0)
+
+    if i < 10:
+        head = [next(F) for x in range (i)]
+    else:
+        head = [next(F) for x in range (10)]
+        
+    counterDictionary = {"countCSV":0, "countTSV":0 }    
+
+    for line in head:
+        if re.search(',', line):
+            numberOfMatches=re.findall(',', line)
+            lengthOfMatches=len(numberOfMatches)
+            counterDictionary["countCSV"]=counterDictionary.get("countCSV",0)+lengthOfMatches
+        if re.search('\t', line):
+            numberOfMatches=re.findall('\t', line)
+            lengthOfMatches=len(numberOfMatches)          
+            counterDictionary["countTSV"]=counterDictionary.get("countTSV",0)+lengthOfMatches
+    
+    if counterDictionary["countTSV"] != counterDictionary["countCSV"]:
+    
+        maxCount = max(counterDictionary, key=counterDictionary.get)
+           
+        if maxCount is "countCSV":
+            fileType = ","
+        elif maxCount is "countTSV":
+           fileType = "\t"
+    else:
+        fileType = ","
+        print "\n"
+        print "Unable to determine delimiter, will try ','. Please check output."
+
+
+
+
+
+
+
+
 ## Variables ##
 
-fdictionary = defaultdict(list)
+keyDictionary = defaultdict(list)
 
 ### Main Program ###
 
@@ -138,27 +189,27 @@ with open(datafile) as inputSheet:
             row_items=item.strip("\n")
             list_length = len(row_items) #number of columns
             
-            row_items_split = row_items.split(",") #split row
+            row_items_split = row_items.split(fileType) #split row
             sample_key = row_items_split[0] # get first item from split row
             sample_key_parse = sample_key.split(delimiter) # split first item by delimiter
-            if sample_key_parse[parse_field] not in fdictionary.keys():
-                fdictionary[sample_key_parse[parse_field]]=[]
+            if sample_key_parse[parse_field] not in keyDictionary.keys():
+                keyDictionary[sample_key_parse[parse_field]]=[]
                 if list_length > 1:                        
                     for item in row_items_split[start_val:list_length]:
                        clean_item=item.strip('\n')
                        if Duplicated:
-                           fdictionary[sample_key_parse[parse_field]].append(clean_item)
-                       elif clean_item not in fdictionary[sample_key_parse[parse_field]]: #won't write duplicate value
-                            fdictionary[sample_key_parse[parse_field]].append(clean_item)
+                           keyDictionary[sample_key_parse[parse_field]].append(clean_item)
+                       elif clean_item not in keyDictionary[sample_key_parse[parse_field]]: #won't write duplicate value
+                            keyDictionary[sample_key_parse[parse_field]].append(clean_item)
             else:
                  if list_length > 1:               
                     for item in row_items_split[start_val:list_length]:
                         clean_item=item.strip('\n')
                         if Duplicated:
-                             fdictionary[sample_key_parse[parse_field]].append(clean_item)
+                             keyDictionary[sample_key_parse[parse_field]].append(clean_item)
                              
-                        elif clean_item not in fdictionary[sample_key_parse[parse_field]]:
-                            fdictionary[sample_key_parse[parse_field]].append(clean_item)
+                        elif clean_item not in keyDictionary[sample_key_parse[parse_field]]:
+                            keyDictionary[sample_key_parse[parse_field]].append(clean_item)
 
             
         
@@ -168,39 +219,38 @@ with open(datafile) as inputSheet:
             # although it does work and is much less code.
             '''
             items = item.strip().split(",")
-            fdictionary[items[0]] += items[1:]
+            keyDictionary[items[0]] += items[1:]
             '''     
 
-            A=item.strip("\n").split(",") #"\t"
+            A=item.strip("\n").split(fileType) #"\t"
             list_length = len(A)
 
             sample_key = A[0]
                
-            if sample_key not in fdictionary.keys():
-                fdictionary[sample_key]=[]
+            if sample_key not in keyDictionary.keys():
+                keyDictionary[sample_key]=[]
                 if list_length > 1:
                     for item in A[1:list_length]:
                         clean_item=item.strip('\n')
                         if Duplicated:                        
-                            fdictionary[sample_key].append(clean_item)
+                            keyDictionary[sample_key].append(clean_item)
                         
-                        
-                        elif clean_item not in fdictionary[sample_key]: #won't write duplicate value
-                            fdictionary[sample_key].append(clean_item)
+                        elif clean_item not in keyDictionary[sample_key]: #won't write duplicate value
+                            keyDictionary[sample_key].append(clean_item)
             else:
                 if list_length > 1:
                     for item in A[1:list_length]:
                         clean_item=item.strip('\n')
                         if Duplicated:
-                            fdictionary[sample_key].append(clean_item)
-                        elif clean_item not in fdictionary[sample_key]:
-                            fdictionary[sample_key].append(clean_item)
+                            keyDictionary[sample_key].append(clean_item)
+                        elif clean_item not in keyDictionary[sample_key]:
+                            keyDictionary[sample_key].append(clean_item)
 
 #### writing output ####
 with open(outputfile, 'wb') as f:  # Just set 'w' mode in 3.x
-    w = csv.writer(f, delimiter=",")
+    w = csv.writer(f, delimiter=fileType)
         #w = csv.writer(sys.stderr) #for debugging, prints to stdout
-    for key, values in fdictionary.iteritems():
+    for key, values in keyDictionary.iteritems():
         templist=[]
         templist2=[]
         templist.append(key)
