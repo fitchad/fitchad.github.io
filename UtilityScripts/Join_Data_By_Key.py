@@ -49,7 +49,8 @@ def get_args():
     parser = argparse.ArgumentParser(
         formatter_class=argparse.RawDescriptionHelpFormatter,
         description=('''\
-This script will take a CSV or TSV file and combine all values for a given key value into a list.
+This script will take a CSV or TSV file and combine all values for a given 
+key value into a {key1:[val1,val2], key2:[val1,val2,val3], etc} dictionary.
 The key values must be in the first column. The values in the first column can be parsed 
 to create a key by supplying a delimiter and field number.
 There is some basic logic (i.e. counting the number of commas or tabs) used to
@@ -178,12 +179,13 @@ with open (datafile, 'r') as F:
 ## Variables ##
 
 keyDictionary = defaultdict(list)
-
+df_length=0
 ### Main Program ###
 
 with open(datafile) as inputSheet:
 
     for item in inputSheet:
+        df_length=df_length+1
         if not item.strip(): continue #skip empty rows
         if parse: #parse out key value from names in first column
             row_items=item.strip("\n")
@@ -245,6 +247,17 @@ with open(datafile) as inputSheet:
                             keyDictionary[sample_key].append(clean_item)
                         elif clean_item not in keyDictionary[sample_key]:
                             keyDictionary[sample_key].append(clean_item)
+
+
+print "\n"
+print "Number of input rows: ", df_length
+print "Number of unique keys: ", len(keyDictionary)
+
+
+
+
+
+
 
 #### writing output ####
 with open(outputfile, 'wb') as f:  # Just set 'w' mode in 3.x

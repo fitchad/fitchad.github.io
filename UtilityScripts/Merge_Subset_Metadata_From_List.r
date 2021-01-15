@@ -6,10 +6,9 @@
 #Goals of Script
 #Merge a list of sampleIDs and a metadata file
 #To Do
-#1. Fix Both join, still giving a Left join when selected. 
 #2. Add an output list of discarded rows
 
-#Last Edit : 12/3/20 4pm
+#Last Edit : 01/13/21 4pm
 
 library("getopt");
 library("reshape2");
@@ -45,27 +44,28 @@ usage = paste(
   "\n",
   "[-o outputfilename]\n",
   "\n",
-  "[-L samplelist_columns_to_retain] (should be written as 4,5,6,7)\n",
+  "[-L samplelist_columns_to_retain] (should be written as 4,5,6,7, sampleIDs are Col1)\n",
   "\n",
-  "[-C metadata_columns_to_retain] (should be written as 4,5,6,7)\n",
+  "[-C metadata_columns_to_retain] (should be written as 4,5,6,7, sampleIDs are Col1)\n",
   "\n",
   "[-A all_merge] (should be L, R, or B. Default is discard if no match)\n",
   "\n",
   "This script is used to merge a list of sample IDs with a metadata file","\n",
-  "in order to trim down a larger list of sample metadata to a specific set", "\n",
-  "It can also be used to merge two metadata sheets", "\n",
+  "in order to trim down a larger list of sample metadata to a specific set.", "\n",
+  "\n",
+  "It can also be used to merge two metadata sheets.", "\n",
   "\n",
   "For both the input list and the metadata sheet, the first column should contain",
-  "the IDs for merging the two sheets",
+  "the IDs for merging the two sheets.",
   "\n",
   "The input list of samples is flexible as the script will just grab the first column",
-  "to use as the match IDs",
+  "to use as the match IDs.",
   "\n",
   "\n",
-  "All metadata columns are retained, or specify retained columns by -L and -C",
+  "All metadata columns are retained, or specify retained columns by -L and -C", "\n",
   "\n",
-  "all_merge is used to do a Left, Right, or Both (union) merge, retaining all columns of respective sheet(s)",
-  "default if option isn't selected is to discard non-matches (intersection). ",
+  "-A all_merge is used to do a Left, Right, or Both (union) merge, retaining all columns of respective sheet(s).",
+  "The default if option isn't selected is to discard non-matches (intersection). ",
   "\n",
   "\n"
   
@@ -110,20 +110,22 @@ if(!length(opt$columnsmeta)){
 
 ALL.X=FALSE
 ALL.Y=FALSE
-ALL=FALSE
 if(!length(opt$all_merge)){
   RetainAll=NULL
 }else{
   RetainAll=opt$all_merge;
   if(RetainAll!="L" && RetainAll!="R" && RetainAll!= "B"){
-    print("Not a valid option, use L, R, or B. Setting to False")
-    
+    cat("\n")
+    cat("*********Warning**********\n")
+    cat(RetainAll, "is not a valid option, use L, R, or B. Setting to False (ie intersection)\n")
+    cat("***************************\n")
   }else if (RetainAll=="L"){
     ALL.X=TRUE
   }else if (RetainAll=="R"){
     ALL.Y=TRUE
   }else if (RetainAll=="B"){
-    ALL=TRUE
+    ALL.X=TRUE
+    ALL.Y=TRUE
     
   }
 }
@@ -192,7 +194,7 @@ cat("\n")
 
 
 #Merging Summary Table Reads and Metadata File
-SummaryMetaMerge<- merge(CountsMat, MetaDataFile, by="row.names", all.x=ALL.X, all.y=ALL.Y, all=ALL)
+SummaryMetaMerge<- merge(CountsMat, MetaDataFile, by="row.names", all.x=ALL.X, all.y=ALL.Y)
 
 names(SummaryMetaMerge)[names(SummaryMetaMerge)=="Row.names"] <- "SampleID"
 
