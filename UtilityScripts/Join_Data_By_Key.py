@@ -51,8 +51,15 @@ def get_args():
         description=('''\
 This script will take a CSV or TSV file and combine all values for a given 
 key value into a {key1:[val1,val2], key2:[val1,val2,val3], etc} dictionary.
+
 The key values must be in the first column. The values in the first column can be parsed 
-to create a key by supplying a delimiter and field number.
+to create a key by supplying a delimiter and field number. The full, original value
+of the parsed key can be retained as a value with the -R flag.
+
+Rows can contain numbers of columns. All values for a key in a given row 
+will be added to the output for that key.
+If you do not want this behavior your should cut the columns you want into a new file.
+
 There is some basic logic (i.e. counting the number of commas or tabs) used to
 determine the file type. Output filetype is the same as input. 
 
@@ -193,27 +200,36 @@ with open(datafile) as inputSheet:
             
             row_items_split = row_items.split(fileType) #split row
             sample_key = row_items_split[0] # get first item from split row
-            sample_key_parse = sample_key.split(delimiter) # split first item by delimiter
-            if sample_key_parse[parse_field] not in keyDictionary.keys():
-                keyDictionary[sample_key_parse[parse_field]]=[]
-                if list_length > 1:                        
-                    for item in row_items_split[start_val:list_length]:
-                       clean_item=item.strip('\n')
-                       if Duplicated:
-                           keyDictionary[sample_key_parse[parse_field]].append(clean_item)
-                       elif clean_item not in keyDictionary[sample_key_parse[parse_field]]: #won't write duplicate value
-                            keyDictionary[sample_key_parse[parse_field]].append(clean_item)
-            else:
-                 if list_length > 1:               
-                    for item in row_items_split[start_val:list_length]:
-                        clean_item=item.strip('\n')
-                        if Duplicated:
-                             keyDictionary[sample_key_parse[parse_field]].append(clean_item)
-                             
-                        elif clean_item not in keyDictionary[sample_key_parse[parse_field]]:
-                            keyDictionary[sample_key_parse[parse_field]].append(clean_item)
+            try:            
+                sample_key_parse = sample_key.split(delimiter)  # split first item by delimiter
 
-            
+                if sample_key_parse[parse_field] not in keyDictionary.keys():
+                    keyDictionary[sample_key_parse[parse_field]]=[]
+                    if list_length > 1:                        
+                        for item in row_items_split[start_val:list_length]:
+                           clean_item=item.strip('\n')
+                           if Duplicated:
+                               keyDictionary[sample_key_parse[parse_field]].append(clean_item)
+                           elif clean_item not in keyDictionary[sample_key_parse[parse_field]]: #won't write duplicate value
+                                keyDictionary[sample_key_parse[parse_field]].append(clean_item)
+                else:
+                     if list_length > 1:               
+                        for item in row_items_split[start_val:list_length]:
+                            clean_item=item.strip('\n')
+                            if Duplicated:
+                                 keyDictionary[sample_key_parse[parse_field]].append(clean_item)
+                                 
+                            elif clean_item not in keyDictionary[sample_key_parse[parse_field]]:
+                                keyDictionary[sample_key_parse[parse_field]].append(clean_item)  
+                    
+                    
+                
+            except IndexError: #catch improper sampleIDs and skip
+                print "Skipping sample key", sample_key, " it lacks proper fields to parse"
+                continue
+
+
+        
         
         else: # no parsing of key from name
             
