@@ -28,7 +28,9 @@ params = c(
   "outputfilename", "o", 3, "character",
   "columnslist", "L", 4, "list",
   "columnsmeta", "C", 5, "list",
-  "all_merge", "A", 6, "character"
+  "all_merge", "A", 6, "character",
+  "slcolname", "S", 7, "character",
+  "mdcolname", "M", 8, "character"
   
 );
 
@@ -41,6 +43,10 @@ usage = paste(
   "-l <samplelist> (can also be a metadata sheet) \n",
   "\n",
   "-m <metadata>\n",
+  "\n",
+  "[-S slcolname] Sample List column name to merge on \n",
+  "\n",
+  "[-M mdcolname] Metadata column name to merge on \n",
   "\n",
   "[-o outputfilename]\n",
   "\n",
@@ -55,14 +61,11 @@ usage = paste(
   "\n",
   "It can also be used to merge two metadata sheets.", "\n",
   "\n",
-  "For both the input list and the metadata sheet, the first column should contain",
-  "the IDs for merging the two sheets.",
-  "\n",
-  "The input list of samples is flexible as the script will just grab the first column",
-  "to use as the match IDs.",
+  "If no column names are specified, the first column of each will be used.", "\n",
   "\n",
   "\n",
   "All metadata columns are retained, or specify retained columns by -L and -C", "\n",
+  "Be sure to include the ID column in the list of retained columns",
   "\n",
   "-A all_merge is used to do a Left, Right, or Both (union) merge, retaining all columns of respective sheet(s).",
   "The default if option isn't selected is to discard non-matches (intersection). ",
@@ -108,6 +111,20 @@ if(!length(opt$columnsmeta)){
   ColumnsToRetainMeta=as.numeric(unlist(ColumnsToRetainMeta[[1]]))
 }
 
+if(!length(opt$slcolname)){
+  SampleColName=NULL
+}else{
+  SampleColName=opt$slcolname
+     
+}
+if(!length(opt$mdcolname)){
+  MetadataColName=NULL
+}else{    
+  MetadataColName=opt$mdcolname
+
+}
+
+
 ALL.X=FALSE
 ALL.Y=FALSE
 if(!length(opt$all_merge)){
@@ -151,7 +168,7 @@ cat("\n", "\n");
 
 #Load factors
 load_factors=function(fname, cols){
-  factors=as.data.frame(read.delim(fname, header=TRUE, row.names=1, check.names=FALSE, sep = "\t"));
+  factors=as.data.frame(read.delim(fname, header=TRUE, check.names=FALSE, sep = "\t"));
   if(!is.null(cols)){
     factors=factors[c(cols-1)]
   }
@@ -159,7 +176,7 @@ load_factors=function(fname, cols){
   
 }
 
-
+#  factors=as.data.frame(read.delim(fname, header=TRUE, row.names=1, check.names=FALSE, sep = "\t"));
 
 ###################
 #### Load data ####
@@ -174,6 +191,18 @@ NumberColumnsList <- ncol(CountsMat)
 
 MetaDataFile<-load_factors(MetaDataFname, ColumnsToRetainMeta)
 NumberColumnsMeta <- ncol(MetaDataFile)
+
+
+BY.X=SampleColName
+if(is.null(SampleColName)){
+  BY.X=colnames(CountsMat[1])
+}
+
+BY.Y=MetadataColName
+if(is.null(MetadataColName)){
+  BY.Y=colnames(MetaDataFile[1])
+}
+
 
 
 cat("\n")
@@ -194,7 +223,7 @@ cat("\n")
 
 
 #Merging Summary Table Reads and Metadata File
-SummaryMetaMerge<- merge(CountsMat, MetaDataFile, by="row.names", all.x=ALL.X, all.y=ALL.Y)
+SummaryMetaMerge<- merge(CountsMat, MetaDataFile, by.x=BY.X, by.y=BY.Y, all.x=ALL.X, all.y=ALL.Y)
 
 names(SummaryMetaMerge)[names(SummaryMetaMerge)=="Row.names"] <- "SampleID"
 
