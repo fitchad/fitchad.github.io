@@ -47,36 +47,45 @@ if(length(opt$factor_file)){
 }
 
 
-if(length(opt$output_file)>0){
+if(length(opt$output_file)){
         OutputFileRoot=opt$output_file;
 }else{
-        OutputFileRoot=InputFileName;
-        OutputFileRoot=gsub("\\.summary_table\\.tsv$", ".NAMES.COMP", OutputFileRoot);
+	OutputFileRoot=paste("NAMES.COMP", sep="")
+#        OutputFileRoot=gsub("\\.summary_table\\.tsv$", ".NAMES.COMP", OutputFileRoot);
 #        OutputFileRoot=gsub("\\.summary_table\\.xls$", "", OutputFileRoot);
-        cat("No output file root specified.  Using input file name as root.\n");
+        cat("No output file root specified.  Using NAMES.COMP  as output.\n");
 }
 
 
 #### Functions #####
 load_factors=function(fname){
-        factors=data.frame(read.table(fname,  header=TRUE, check.names=FALSE, row.names=1, comment.char="", quote="", sep="\t"));
+        factors=data.frame(read.table(fname,  header=FALSE, check.names=FALSE, row.names=1, comment.char="", quote="", sep="\t"));
         dimen=dim(factors);
 	cat("\n","\n");
-	cat("Loading Metadata: ", fname, "\n");
+	cat("Loading -f : ", fname, "\n");
         cat("Rows Loaded: ", dimen[1], "\n");
         cat("Cols Loaded: ", dimen[2], "\n");
         return(factors);
 }
 
 load_summary_file=function(fname){
-	cat("\n","\n");
-        cat("Loading Summary Table: ", fname, "\n");
-        inmat=as.matrix(read.table(fname, sep="\t", header=TRUE, check.names=FALSE, comment.char="", row.names=1))
-        counts_mat=inmat[,2:(ncol(inmat))];
-	dimen=dim(counts_mat);
-	cat("Rows Loaded: ", dimen[1], "\n");
-	cat("\n","\n");
+        counts_mat=data.frame(read.table(fname,  header=FALSE, check.names=FALSE, row.names=1, comment.char="", quote="", sep="\t"));
+        dimen=dim(counts_mat);
+        cat("\n","\n");
+        cat("Loading -i: ", fname, "\n");
+        cat("Rows Loaded: ", dimen[1], "\n");
+        cat("Cols Loaded: ", dimen[2], "\n");
         return(counts_mat);
+
+
+#	cat("\n","\n");
+ #       cat("Loading Summary Table: ", fname, "\n");
+  #      inmat=as.matrix(read.table(fname, sep="\t", header=TRUE, check.names=FALSE, comment.char="", row.names=1))
+   #     counts_mat=inmat[,2:(ncol(inmat))];
+#	dimen=dim(counts_mat);
+#	cat("Rows Loaded: ", dimen[1], "\n");
+#	cat("\n","\n");
+ #       return(counts_mat);
 }
 
 #########################
@@ -92,18 +101,18 @@ shared=intersect(orig_factors_samples, orig_counts_samples);
 
 
 cat("\n\n");
-cat("Samples not represented in metadata file:\n", file=OutputFileRoot, sep="\n", append=TRUE);
+cat("Samples not represented in sample sheet:\n", file=OutputFileRoot, sep="\n", append=TRUE);
 excl_to_st=setdiff(orig_counts_samples, shared);
 cat(excl_to_st, file=OutputFileRoot, sep="\n", append=TRUE);
-cat(c("Samples not represented in factors file: ", length(excl_to_st)),"\n");
+cat(c("Samples not represented in", FactorFileName, ": ", length(excl_to_st)), "\n");
 print(excl_to_st);
 
 
 cat("\n\n");
-cat("Samples not represented in summary table:\n", file=OutputFileRoot, sep="\n", append=TRUE);
+cat("Samples not represented in fastq files:\n", file=OutputFileRoot, sep="\n", append=TRUE);
 excl_to_fct=setdiff(orig_factors_samples, shared);
 cat(excl_to_fct, file=OutputFileRoot, sep="\n", append=TRUE);
-cat(c("Samples not represented in summary table: ", length(excl_to_fct)), "\n");
+cat(c("Samples not represented in", InputFileName, ": ", length(excl_to_fct)), "\n");
 print(excl_to_fct);
 cat("\n\n");
 
