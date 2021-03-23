@@ -23,9 +23,10 @@ usage = paste(
         "\n",
         "\n",
 	"This script is hacked from Kelvin's plot stacked bar (or likely any of his scripts)\n",
-	"It takes an input summary table and a metadata (factor) file\n",
-	"Performs a setdiff and reports back unique (ie unmatched) samples between the two\n",
-	"It also outputs the unmatched sampleIDs to a text file instead of printing on a PDF\n",
+	"It takes two .tsv files as input and uses data from the first column of each,  \n",
+	"performing an intersection on the columns, and a setdiff for each column vs the intersection. \n",
+	"Unique (ie unmatched) samples, as well as matches between the two columns are reported \n",
+	"to the screen and to a text file\n",
 	"\n",
         "\n",
         "\n", sep="");
