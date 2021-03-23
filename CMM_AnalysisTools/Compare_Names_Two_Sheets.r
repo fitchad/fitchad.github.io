@@ -61,25 +61,17 @@ if(length(opt$output_file)){
 load_factors=function(fname){
         factors=data.frame(read.table(fname,  header=FALSE, check.names=FALSE, row.names=1, comment.char="", quote="", sep="\t"));
         dimen=dim(factors);
-	cat("\n","\n");
-	cat("Loading -f : ", fname, "\n");
+  	    cat("\n","\n");
+        cat("Loading : ", fname, "\n");
         cat("Rows Loaded: ", dimen[1], "\n");
         cat("Cols Loaded: ", dimen[2], "\n");
         return(factors);
 }
 
-load_summary_file=function(fname){
-        counts_mat=data.frame(read.table(fname,  header=FALSE, check.names=FALSE, row.names=1, comment.char="", quote="", sep="\t"));
-        dimen=dim(counts_mat);
-        cat("\n","\n");
-        cat("Loading -i: ", fname, "\n");
-        cat("Rows Loaded: ", dimen[1], "\n");
-        cat("Cols Loaded: ", dimen[2], "\n");
-        return(counts_mat);
-}
+
 #########################
 
-orig_counts_mat=load_summary_file(InputFileName);
+orig_counts_mat=load_factors(InputFileName);
 
 orig_factors_mat=load_factors(FactorFileName);
 
