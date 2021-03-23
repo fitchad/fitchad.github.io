@@ -76,18 +76,7 @@ load_summary_file=function(fname){
         cat("Rows Loaded: ", dimen[1], "\n");
         cat("Cols Loaded: ", dimen[2], "\n");
         return(counts_mat);
-
-
-#	cat("\n","\n");
- #       cat("Loading Summary Table: ", fname, "\n");
-  #      inmat=as.matrix(read.table(fname, sep="\t", header=TRUE, check.names=FALSE, comment.char="", row.names=1))
-   #     counts_mat=inmat[,2:(ncol(inmat))];
-#	dimen=dim(counts_mat);
-#	cat("Rows Loaded: ", dimen[1], "\n");
-#	cat("\n","\n");
- #       return(counts_mat);
 }
-
 #########################
 
 orig_counts_mat=load_summary_file(InputFileName);
@@ -100,23 +89,32 @@ orig_counts_samples=rownames(orig_counts_mat);
 shared=intersect(orig_factors_samples, orig_counts_samples);
 
 
+
 cat("\n\n");
-cat("Samples not represented in sample sheet:\n", file=OutputFileRoot, sep="\n", append=TRUE);
 excl_to_st=setdiff(orig_counts_samples, shared);
+cat("Samples not represented in ", basename(FactorFileName), ": ", length(excl_to_st), file=OutputFileRoot, sep="", append=TRUE);
+cat("", file=OutputFileRoot, sep="\n", append=TRUE)
 cat(excl_to_st, file=OutputFileRoot, sep="\n", append=TRUE);
-cat(c("Samples not represented in", FactorFileName, ": ", length(excl_to_st)), "\n");
+cat(c("Samples not represented in", basename(FactorFileName), ":", length(excl_to_st)), "\n");
 print(excl_to_st);
 
 
+
 cat("\n\n");
-cat("Samples not represented in fastq files:\n", file=OutputFileRoot, sep="\n", append=TRUE);
 excl_to_fct=setdiff(orig_factors_samples, shared);
+cat("\n", "Number of Samples not represented in ", basename(InputFileName), ": ", length(excl_to_fct), file=OutputFileRoot, sep="", append=TRUE);
+cat("", file=OutputFileRoot, sep="\n", append=TRUE)
 cat(excl_to_fct, file=OutputFileRoot, sep="\n", append=TRUE);
-cat(c("Samples not represented in", InputFileName, ": ", length(excl_to_fct)), "\n");
+cat(c("Samples not represented in", basename(InputFileName), ":", length(excl_to_fct)), "\n");
 print(excl_to_fct);
+
+
 cat("\n\n");
 
 num_shared=length(shared);
-cat("Number of Shared Samples: ", num_shared, "\n");
+cat("\n", "Number of Shared Samples: ", num_shared, file=OutputFileRoot, sep="", append=TRUE)
+cat("", shared, file=OutputFileRoot, sep="\n", append=TRUE)
+cat("Number of Shared Samples:", num_shared, "\n");
+print(shared)
 cat("\n\n");
 
