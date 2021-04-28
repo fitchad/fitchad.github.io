@@ -170,7 +170,7 @@ cat("\n", "\n");
 load_factors=function(fname, cols){
   factors=as.data.frame(read.delim(fname, header=TRUE, check.names=FALSE, sep = "\t"));
   if(!is.null(cols)){
-    factors=factors[c(cols-1)]
+    factors=factors[c(cols)]
   }
   return(factors);
   
@@ -191,7 +191,7 @@ NumberColumnsList <- ncol(CountsMat)
 
 MetaDataFile<-load_factors(MetaDataFname, ColumnsToRetainMeta)
 NumberColumnsMeta <- ncol(MetaDataFile)
-
+print (MetaDataFile)
 
 BY.X=SampleColName
 if(is.null(SampleColName)){
