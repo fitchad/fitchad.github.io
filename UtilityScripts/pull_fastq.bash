@@ -9,29 +9,30 @@
 
 
 #Project ID. Used in the File Path if necessary. 
-PJ=TEST
+PJ=0208_GALA
 
 #DIR=$PWD
-DIR=/media/sf_GRADS_Data/$PJ
+DIR=/mnt/cmmnas02/Projects2/$PJ
 
 #Directory where fastq files will be copied. 
-DESTDIR=$DIR/FastqPull     #Will create below if necessary
+DESTDIR=$DIR/FastqPull_TEST     #Will create below if necessary
 mkdir $DESTDIR
 
 
 #List of SampleIDs to match
-SLIST=$DIR/Filename_List_Sarc_R1-R2.txt
+SLIST=$DIR/ScriptsUsed/0208_GALA_Fastq_List.SampleIDs
 
 #Fastq Lists, containing the SampleID and the Fastq File paths. Typically generated in pipeline QC step.
 #Can add as many as you would like, then add variable name to 'cat' command below
-FLIST1=$DIR/GRADS_sarc_Fastq_Pull_List_20200708.txt
+FLIST1=$DIR/ScriptsUsed/0208_GALA_Fastq_List.FOR.FASTQ.PULL_TEMP
 FLIST2=""
 FLIST3=""
 
 cat $FLIST1 $FLIST2 $FLIST3 > $DESTDIR/FLIST.TEMP
 
 #Output archive name root. Escaping special characters. 
-OUT=$PJ\_Sarc\_Fastq\_20200708
+OUT=${PJ}\_Fastq\_20210705
+
 
 
 #####################################################################
@@ -79,8 +80,9 @@ else
         echo "Seems to be more unique SampleIDs then SampleIDs....this shouldn't be possible"
 fi
 
-#Creating unmatched sample list. awk will split filename from MatchedResults then grep with original sample list.
-awk '{n=split($NF,a,"/");print a[n]}' $DESTDIR/MatchedResults.txt | fgrep -w -v -f - $SLIST > $DESTDIR/UnmatchedSamples
+#Creating unmatched sample list. awk will split filename from MatchedResults, remove the non sampleID part of the name with sed and 
+#then grep with original sample list.
+awk '{n=split($NF,a,"/");print a[n]}' $DESTDIR/MatchedResults.txt | sed 's/\_S.*fastq\.gz//g' | fgrep -w -v -f - $SLIST > $DESTDIR/UnmatchedSamples
 
 echo ""
 echo "Number of Unmatched Samples: " $(grep -vc ^$ $DESTDIR/UnmatchedSamples)
