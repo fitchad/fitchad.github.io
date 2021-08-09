@@ -19,7 +19,7 @@ SAMDIR2=/mnt/scratch/TEMP_ACF/$PROJECT/
 RAWDIR2=/mnt/cmmnas02/SequencingRuns/$RUN/Run
 
 #for R1 files
-find $RAWDIR2 -name "$PJ*\_R1\_*" > $SAMDIR2/TEMPL_R1_2.txt
+find $RAWDIR2 -name "$PJ*\_R1\_*" | grep -v "Undetermined" > $SAMDIR2/TEMPL_R1_2.txt
 #for R2 files, takes R1 file list and renames, as Illumina files only differ slightly
 cat $SAMDIR2/TEMPL_R1_2.txt | sed 's/_R1_/_R2_/' > $SAMDIR2/TEMPL_R2_2.txt
 #for Sample IDs
