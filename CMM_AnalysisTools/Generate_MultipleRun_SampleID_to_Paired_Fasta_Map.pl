@@ -210,7 +210,9 @@ open(OUT_FH, ">$collapse_rep_tsv") || die "Could not open $collapse_rep_tsv\n";
 
 print OUT_FH "ReplicateID\tSampleID\n";
 foreach my $uniq_samp_id(sort keys %samp_to_uniqsamp_hash){
-        print OUT_FH "$uniq_samp_id\t$samp_to_uniqsamp_hash{$uniq_samp_id}\n";
+	my $repl_samp_id_cut = $uniq_samp_id =~ s/\.paired\.for\.fasta//r;
+	my $samp_id = $samp_to_uniqsamp_hash{$uniq_samp_id} =~ s/\.paired\.for\.fasta//r;
+        print OUT_FH "$repl_samp_id_cut\t$samp_id\n";
 }
 
 close(OUT_FH);
