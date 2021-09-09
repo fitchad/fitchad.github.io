@@ -116,13 +116,13 @@ foreach my $sname(@sampleIDlist){
 	$sname=join "", $sname, ".+";
 	}
 	foreach my $fname(@fullfastalist){
-		if($fname =~/$sname\.paired\.for\.fasta$/){
+		if($fname =~/\/$sname\/{0}\.paired\.for\.fasta$/){
 			push @fastalist, $fname;
 		}
 	}
 	if($opt_c && $opt_i){
 		foreach my $fname(@fullfastalist){
-                	if($fname =~/\/00.+\.paired\.for\.fasta$/){
+                	if($fname =~/\/00.+\/{0}\.paired\.for\.fasta$/){
                         	push @fastalist, $fname;
 			}
 		}
