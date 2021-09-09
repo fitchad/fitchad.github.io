@@ -1,6 +1,7 @@
 #!/usr/bin/env perl
 
-
+#To Do:
+#1.Smartmatch is an experimental feature, should find other way to do the matching. 
 
 ###############################################################################
 
@@ -10,35 +11,38 @@ use Getopt::Std;
 use FileHandle;
 use File::Basename;
 use File::Find;
-use vars qw($opt_r $opt_s $opt_q $opt_p $opt_o);
+use vars qw($opt_r $opt_s $opt_o $opt_i $opt_c);
 use Cwd;
-use Data::Dumper qw(Dumper);
+#use Data::Dumper qw(Dumper);
 
-
-getopts("r:s:q:p:o:");
+getopts("r:s:o:ic");
 my $usage = "usage: 
 
 $0 
 
-	-r <run list>
+	-r <run path list>
 	-s <sampleID list>
 	-o <output sample id to fasta mapping file>
-	[-q qv value to use, default 30]
-	[-p path to fastq files, default /mnt/cmmnas02/SequencingRuns]
+	-i [interpret sampleID list as a list of studyIDs]
+	-c [include controls in output if using studyID list option]
 	
 
-	This script will look through all the fasta (.fasta, .fa) files
-	in the specified path, and generate a sample id to fasta file
-	path.
+	This script will look through all the paired.for.fasta files
+	in the specified path(s), and generate a sampleID to paired.for.fasta file
+	path for the listed sampleIDs. 
 
 	The run list file -r should be the full paths of where you want to
 	look for the paired.for.fasta files, for example:
-	/mnt/cmmnas02/SequencingRuns/20180934_efef_dfdfe__RN-0000/QC/QV_30/MergeMates
+	/mnt/cmmnas02/SequencingRuns/20180934_efef_dfdfe__RN-0000/QC/QV_30/MergeMates/screened_fasta
 
-	The sampleID list should be exact matches to sampleIDs. Options are being
-	added to do fuzzy matches or to look for all the samples from a certain study(ies)
-
-	the -q and -p are currently inactive as I decide best course of action. 
+	The sampleID list should be exact matches to sampleIDs, unless using -i option.
+	
+	The -i studyID option changes the interpretation of the sampleID list to one of a studyID
+	list. Instead of looking for exact matches to sampleIDs, matches will be to any samples beginning
+	with the listed studyIDs.
+	
+	If using the -i studyID option, the -c controls option will also capture any controls samples beginning
+	with the regex '^00*\.'
 
 
 	The output file is:
@@ -55,28 +59,13 @@ if(!(
 }
 
 
-my $target_path=$opt_p;
-if(!$opt_p){
-$target_path="/home/acf/TEST";
-#$target_path='/mnt/cmmnas02/SequencingRuns';
-}
-
-
-my $qv_value=$opt_q;
-if(!$opt_q){
-$qv_value=30;
-}
-
 my $output_fname=$opt_o;
 my $run_list=$opt_r;
 my $sample_list=$opt_s;
-
-
+my $studyID;
 
 print STDERR "\n";
 
-print STDERR "QV_Value: $qv_value\n";
-print STDERR "Target Path: $target_path\n";
 print STDERR "Run List: $run_list\n";
 print STDERR "Sample List: $sample_list\n";
 print STDERR "Output Filename: $output_fname\n";
@@ -110,10 +99,8 @@ close(S);
 
 my $cwd = cwd();
 
-#This searches each run and makes a list of all files under that run_path.
+#This searches each run directory and makes a list of all files under that run_path.
 foreach my $runID(@runlist){
-#	my $run_path=$target_path . '/' . $runID . '/' . "QC" . '/' . "QV_" . $qv_value . '/' . "MergeMates";
-#	@filelist=split "\n", `find $run_path`;
         @filelist=split "\n", `find $runID`;
 	foreach my $filereturn(@filelist){
 		push @fullfastalist, $filereturn;
@@ -121,12 +108,23 @@ foreach my $runID(@runlist){
 }
 
 
-#This compares the samples list to the fullfastalist and creates a smaller list with matches
-#Only matches exactly to the name of the sampleID.paired.for.fasta
+#This compares the sampleID list to the fullfastalist and creates a smaller list with matches
+#If -i isnt set, it only matches exactly to the name of the sampleID.paired.for.fasta.
+#if -i is set, will match based on provided studyID(s).
 foreach my $sname(@sampleIDlist){
+	if($opt_i){
+	$sname=join "", $sname, ".+";
+	}
 	foreach my $fname(@fullfastalist){
 		if($fname =~/$sname\.paired\.for\.fasta$/){
 			push @fastalist, $fname;
+		}
+	}
+	if($opt_c && $opt_i){
+		foreach my $fname(@fullfastalist){
+                	if($fname =~/\/00.+\.paired\.for\.fasta$/){
+                        	push @fastalist, $fname;
+			}
 		}
 	}
 }
@@ -137,11 +135,11 @@ my %map;
 foreach my $fpath(@fastalist){
         print STDERR "$fpath\n";
         my ($name, $path)=fileparse($fpath);
+#	print STDERR "$name\n";
         @{$map{$fpath}}=split /\./, $name;
-#	print STDERR join ".", @{$map{$fpath}};
 }
 
-print Dumper \%map;
+#print Dumper \%map;
 
 
 #creating an array of the sampleIDs
@@ -151,12 +149,12 @@ foreach my $string (keys %map){
 	$jstring =~ s/\.paired\.for\.fasta//;
 	push @tempArray, $jstring;
 }
-#looking for all non-matched sampleIDs from the original list and for now printing but will push to file.
+#looking for all non-matched sampleIDs from the original list
+print STDERR "Did not find fasta for:\n";
 foreach my $sampleID(@sampleIDlist){
 	chomp $sampleID;
-	print STDERR $sampleID;
 	if ( not /$sampleID/ ~~ @tempArray){
-		print STDERR "Did not find fasta for: $sampleID\n";	
+		print STDERR "$sampleID\n";	
 	}
 }
 
@@ -199,7 +197,8 @@ foreach my $fpath(keys %map){
 open(OUT_FH, ">$output_fname") || die "Could not open $output_fname\n";
 
 foreach my $samp_id(sort keys %sampid_to_path_hash){
-        print OUT_FH "$samp_id\t$sampid_to_path_hash{$samp_id}\n";
+	my $samp_id_cut = $samp_id =~ s/\.paired\.for\.fasta//r;
+        print OUT_FH "$samp_id_cut\t$sampid_to_path_hash{$samp_id}\n";
 }
 
 close(OUT_FH);
@@ -215,6 +214,24 @@ foreach my $uniq_samp_id(sort keys %samp_to_uniqsamp_hash){
 }
 
 close(OUT_FH);
+
+
+#------------------------------------------------------------------------------
+
+my $unmatched_sample_tsv="$output_fname.unmatched.tsv";
+open(OUT_FH, ">$unmatched_sample_tsv") || die "Could not open $unmatched_sample_tsv\n";
+
+print OUT_FH "UmatchedID\n";
+
+foreach my $sampleID(@sampleIDlist){
+        chomp $sampleID;
+        if ( not /$sampleID/ ~~ @tempArray){
+                print OUT_FH "$sampleID\n";
+        }
+}
+
+close(OUT_FH);
+
 
 ###############################################################################
 
