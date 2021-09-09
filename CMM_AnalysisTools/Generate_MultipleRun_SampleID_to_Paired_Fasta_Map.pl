@@ -41,13 +41,13 @@ $0
 	list. Instead of looking for exact matches to sampleIDs, matches will be to any samples beginning
 	with the listed studyIDs.
 	
-	If using the -i studyID option, the -c controls option will also capture any controls samples beginning
-	with the regex '^00*\.'
+	If using the -i studyID option, the -c controls option will also capture any controls using
+	the regex '/00.+\.paired\.for\.fastaEOL'
 
 
 	The output file is:
 
-	<generated sample id> \\t <fasta path> \\n
+	<generated sample id> \\t <paired.for.fasta path> \\n
 
 ";
 
