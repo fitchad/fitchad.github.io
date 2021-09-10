@@ -1,7 +1,7 @@
 #!/usr/bin/env perl
 
 #To Do:
-#1.Smartmatch is an experimental feature, should find other way to do the matching. 
+#1. add the ability to change the file extension?
 
 ###############################################################################
 
@@ -13,7 +13,6 @@ use File::Basename;
 use File::Find;
 use vars qw($opt_r $opt_s $opt_o $opt_i $opt_c);
 use Cwd;
-#use Data::Dumper qw(Dumper);
 
 getopts("r:s:o:ic");
 my $usage = "usage: 
@@ -41,8 +40,8 @@ $0
 	list. Instead of looking for exact matches to sampleIDs, matches will be to any samples beginning
 	with the listed studyIDs.
 	
-	If using the -i studyID option, the -c controls option will also capture any controls using
-	the regex '/00.+\.paired\.for\.fastaEOL'
+	If using the -i studyID option, adding the -c controls option will also capture any controls using
+	the regex '/00.+\/{0}\.paired\.for\.fastaEOL'
 
 
 	The output file is:
@@ -71,23 +70,22 @@ print STDERR "Sample List: $sample_list\n";
 print STDERR "Output Filename: $output_fname\n";
 
 ###############################################################################
-
+my @runlist;
+my @sampleIDlist;
 my @filelist;
 my @fastalist;
-my @runlist;
 my @fullfastalist;
-my @sampleIDlist;
 my @matchedlist;
 
 #Creates a list of runs from the input run list text file
 
-open(F, $opt_r) or die("no file named: $opt_r!\n");
+open(R, $opt_r) or die("no file named: $opt_r!\n");
 
-while(<F>) {
+while(<R>) {
 	chomp;
 	push(@runlist, $_);
 }
-close(F);
+close(R);
 
 open(S, $opt_s) or die("no file named: $opt_s!\n");
 while(<S>) {
@@ -108,9 +106,9 @@ foreach my $runID(@runlist){
 }
 
 
-#This compares the sampleID list to the fullfastalist and creates a smaller list with matches
+#Compares the sampleID list to the fullfastalist and creates a smaller list with matches
 #If -i isnt set, it only matches exactly to the name of the sampleID.paired.for.fasta.
-#if -i is set, will match based on provided studyID(s).
+#if -i is set, will match based on provided studyID(s). If -c is set, will include control samples.
 foreach my $sname(@sampleIDlist){
 	if($opt_i){
 	$sname=join "", $sname, ".+";
@@ -118,13 +116,9 @@ foreach my $sname(@sampleIDlist){
 	foreach my $fname(@fullfastalist){
 		if($fname =~/\/$sname\/{0}\.paired\.for\.fasta$/){
 			push @fastalist, $fname;
-		}
-	}
-	if($opt_c && $opt_i){
-		foreach my $fname(@fullfastalist){
-                	if($fname =~/\/00.+\/{0}\.paired\.for\.fasta$/){
-                        	push @fastalist, $fname;
-			}
+		}elsif($opt_c && $opt_i && $fname =~/\/00.+\/{0}\.paired\.for\.fasta$/){
+                        push @fastalist, $fname;
+	
 		}
 	}
 }
@@ -135,26 +129,26 @@ my %map;
 foreach my $fpath(@fastalist){
         print STDERR "$fpath\n";
         my ($name, $path)=fileparse($fpath);
-#	print STDERR "$name\n";
         @{$map{$fpath}}=split /\./, $name;
 }
 
-#print Dumper \%map;
 
+#compare values from the sampleID list with found paired.for.fasta sample names
+my %sampleIDHash;
 
-#creating an array of the sampleIDs
-my @tempArray;
-foreach my $string (keys %map){
-	my $jstring = join ".", @{$map{$string}};
-	$jstring =~ s/\.paired\.for\.fasta//;
-	push @tempArray, $jstring;
-}
-#looking for all non-matched sampleIDs from the original list
-print STDERR "Did not find fasta for:\n";
-foreach my $sampleID(@sampleIDlist){
-	chomp $sampleID;
-	if ( not /$sampleID/ ~~ @tempArray){
-		print STDERR "$sampleID\n";	
+if(not $opt_i){
+	foreach my $string (keys %map){
+		my $jstring = join ".", @{$map{$string}};
+		$jstring =~ s/\.paired\.for\.fasta//;
+		$sampleIDHash{$jstring}=1;
+	}
+	#looking for all non-matched sampleIDs from the original list
+	print STDERR "Did not find fasta for:\n";
+	foreach my $sampleID(@sampleIDlist){
+		chomp $sampleID;
+		if(not exists($sampleIDHash{$sampleID})){
+			print STDERR "$sampleID\n";
+		}
 	}
 }
 
@@ -225,10 +219,12 @@ open(OUT_FH, ">$unmatched_sample_tsv") || die "Could not open $unmatched_sample_
 
 print OUT_FH "UmatchedID\n";
 
-foreach my $sampleID(@sampleIDlist){
-        chomp $sampleID;
-        if ( not /$sampleID/ ~~ @tempArray){
-                print OUT_FH "$sampleID\n";
+if(not $opt_i){
+        foreach my $sampleID(@sampleIDlist){
+                chomp $sampleID;
+                if(not exists($sampleIDHash{$sampleID})){
+                        print OUT_FH "$sampleID\n";
+                }
         }
 }
 
