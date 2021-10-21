@@ -1,9 +1,9 @@
 #!/usr/bin/env perl
 
 #To Do:
-#1. update so that controls are only searched for in directories that have a studyID match
-#2. add the ability to change the file extension?
-
+#1. removed the ".paired.for.fasta" extension earlier in the program rather than
+#repeating the removal multiple times, however not happy with it as it is a little 
+#more confusing now. May revisit later:
 
 ###############################################################################
 
@@ -117,8 +117,10 @@ foreach my $sname(@sampleIDlist){
 	}
 	foreach my $fname(@fullfastalist){
 		if($fname =~/\/$sname\/{0}\.paired\.for\.fasta$/){
+			$fname =~ s/\.paired\.for\.fasta//;
 			push @fastalist, $fname;
 		}elsif($opt_c && $opt_i && $fname =~/\/00.+\/{0}\.paired\.for\.fasta$/){
+			$fname =~ s/\.paired\.for\.fasta//;
                         push @fastalist, $fname;
 	
 		}
@@ -141,7 +143,7 @@ my %sampleIDHash;
 if(not $opt_i){
 	foreach my $string (keys %map){
 		my $jstring = join ".", @{$map{$string}};
-		$jstring =~ s/\.paired\.for\.fasta//;
+#		$jstring =~ s/\.paired\.for\.fasta//;
 		$sampleIDHash{$jstring}=1;
 	}
 	#looking for all non-matched sampleIDs from the original list
@@ -193,8 +195,7 @@ foreach my $fpath(keys %map){
 open(OUT_FH, ">$output_fname") || die "Could not open $output_fname\n";
 
 foreach my $samp_id(sort keys %sampid_to_path_hash){
-	my $samp_id_cut = $samp_id =~ s/\.paired\.for\.fasta//r;
-        print OUT_FH "$samp_id_cut\t$sampid_to_path_hash{$samp_id}\n";
+        print OUT_FH "$samp_id\t$sampid_to_path_hash{$samp_id}\n";
 }
 
 close(OUT_FH);
@@ -204,11 +205,8 @@ close(OUT_FH);
 my $collapse_rep_tsv="$output_fname.clps.tsv";
 open(OUT_FH, ">$collapse_rep_tsv") || die "Could not open $collapse_rep_tsv\n";
 
-print OUT_FH "ReplicateID\tSampleID\n";
 foreach my $uniq_samp_id(sort keys %samp_to_uniqsamp_hash){
-	my $repl_samp_id_cut = $uniq_samp_id =~ s/\.paired\.for\.fasta//r;
-	my $samp_id = $samp_to_uniqsamp_hash{$uniq_samp_id} =~ s/\.paired\.for\.fasta//r;
-        print OUT_FH "$repl_samp_id_cut\t$samp_id\n";
+        print OUT_FH "$uniq_samp_id\t$samp_to_uniqsamp_hash{$uniq_samp_id}\n";
 }
 
 close(OUT_FH);
