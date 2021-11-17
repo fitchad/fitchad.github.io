@@ -60,6 +60,10 @@ usage = paste(
 	"	  example:\n",
 	"	     gpa=remap(grade, c(\"A\", \"B\", \"C\", \"D\", \"E\"), c(4, 3, 2, 1, 0))\n",
 	"\n",
+	"	redefine_NA(x, value):  This will remap all the NAs in x to the the specified value.\n",
+	"	  example:\n",
+	"	     medication_usage_nona=redefine_NA(medication_usage, 0)\n",
+	"\n",
 	"	function.list(fun, list(x, y, ...), na.rm=T): This a generic function that will apply the 'fun' command\n",
 	"		across the rows for each of the columns specified in the list.\n",
 	"		If you don't do this, the function by itself will apply to the column, isntead of\n",
@@ -96,6 +100,14 @@ usage = paste(
 	"		str.chop_left(x, n)\n",
 	"		str.chop_right(x, n)\n",
 	"\n",
+	"		str.split_keep(x, sep, keep_idx, join)\n",
+	"			This will split x by sep, then only keep the keep_idx components\n",
+	"			  then rejoin with the join character.  Useful for manipulating Sample IDs.\n",
+	"			For example: \n",
+	"			  str.split_keep(\"This.is.a.test\", \"\\\\.\", c(1,4), \".\");\n",
+	"			Produces:\n",
+	"			  \"This.test\"\n",
+	"\n",
 	"	Indexing:\n",
 	"		index(start=1) will assign a number from start to number of rows.\n",
 	"\n",
@@ -129,6 +141,16 @@ usage = paste(
 	"	num_to_str_id(numeric_id, prefix=\"s\")\n",
 	"		This will convert the numeric id into a string.  By default, a prefix is prepended\n",
 	"		to the number to make it a string.\n",
+	"\n",
+	"	set_LOQ(x, detection_limit_value, method)\n",
+	"		This will reset the detection_limit value in the column to a new value.\n",
+	"		For example, if the detection_limit value is 0 or -1, then that will be converted.\n",
+	"		The goal is to differentiate detecton limit from NA (missing data)\n",
+	"		Specify the methods:\n",
+	"			zero:  set LOQ to 0\n",
+	"			min_div10:  find min, then divide by 10\n",
+	"			min_div02:  find min, then divide by 2\n",
+	"			expected:  Assume X is normal, set LOQ to Exp[X: X<LOQ]\n",
 	"\n",
 	"\n",
 	"For debugging you can also do:\n",
@@ -218,7 +240,7 @@ bin=function(x, range_names, breaks){
 }
 
 
-remap=function(x, key, value){
+remap=function(x, key, value, leave_unmapped_alone=T){
 
 	len=length(x);
 	if(length(key)!=length(value)){
@@ -229,12 +251,33 @@ remap=function(x, key, value){
 	for(i in 1:len){
 		ix=which(x[i]==key);
 		if(length(ix)==0){
-			new[i]=NA;
+			if(leave_unmapped_alone){
+				new[i]=x[i];
+			}else{
+				new[i]=NA;
+			}
 		}else{
 			new[i]=value[ix];
 		}
 	}
+	
+	# Determine whether to convert results to numeric
+	non_na_ix=!is.na(new);
+	numeric_try=as.numeric(new[non_na_ix]);
+	if(any(is.na(numeric_try))){
+		# leave alone, it still looks like it's non-numeric
+	}else{
+		# convert to numeric
+		new=as.numeric(new);
+	}
+
 	return(new);
+}
+
+redefine_NA=function(x, value){
+	na_ix=is.na(x);
+	x[na_ix]=value;
+	return(x);	
 }
 
 function.list=function(fun, arglist, na.rm=T){
@@ -278,11 +321,12 @@ periodicity_by_group=function(abs, grp){
     for(j in 1:length(int_vect)){
       out[int_vect[j]]=grp_val[j+1]-grp_val[j]
     }
-    
+
   }
-  
+
   return(out);
 }
+
 
 
 indices_by_group=function(abs, grp){
@@ -365,6 +409,37 @@ str.chop_right=function(x, n){
 	substr(x, 1, last-n);	
 }
 
+
+str.split_keep=function(x, sep="\\.", keep_idx, join="."){
+	arr_len=length(x);
+	out_arr=character(arr_len);
+	for(i in 1:arr_len){
+		splits=strsplit(x[i], sep)[[1]];
+		out_arr[i]=paste(splits[keep_idx], collapse=join);
+	}
+	return(out_arr);
+}
+
+str.split_keep_MDBIO=function(x, sep="\\.", keep_idx, join="."){
+        arr_len=length(x);
+        out_arr=character(arr_len);
+	keep_idx_MB=keep_idx+1
+	for(i in 1:arr_len){
+                splits=strsplit(x[i], sep)[[1]];
+		if (identical(splits[1],"0159")){
+			out_arr[i]=paste(splits[keep_idx_MB], collapse=join);
+		}else{
+			out_arr[i]=paste(splits[keep_idx], collapse=join);
+		}
+	}
+	return(out_arr);
+}
+
+
+
+
+
+
 #------------------------------------------------------------------------------
 
 index=function(start=1){
@@ -391,6 +466,92 @@ print(names(numeric_id));
 	template_str=paste(prefix, "%0", num_digits, "g", sep="");
 	num_char=sprintf(template_str, numeric_id);
 	return(num_char);
+
+}
+
+#------------------------------------------------------------------------------
+
+set_LOQ=function(x, detection_limit_value, method){
+
+	dl_pos=(x==detection_limit_value);
+	values=x[!dl_pos];
+	min_avail=min(values);
+	num_abv_dl=length(values);
+	cat("Num values above DL: ", num_abv_dl, "\n");
+
+	if(method=="zero"){
+		x[dl_pos]=0;
+	}else if(method=="min_div10"){
+		x[dl_pos]=min_avail/10;
+	}else if(method=="min_div02"){
+		x[dl_pos]=min_avail/2;
+	}else if(method=="expected"){
+
+		# Test for normality
+		shap.res=shapiro.test(values);
+		
+		# Add 1 if any 0's
+		if(any(values==0)){
+			log_val=log(values+1);
+			p1=T;
+		}else{
+			log_val=log(values);
+			p1=F;
+		}
+
+		# Test transform for normality
+		shap.res.log=shapiro.test(log_val);
+
+		# If transform pvalue is greater than untransformed, then keep transform
+		if(shap.res$p.value<shap.res.log$p.value){
+			cat("Transforming for normality.\n");
+			keep_trans=T;	
+			calc_val=log_val;
+		}else{
+			keep_trans=F;
+			calc_val=values;
+		}
+
+		min_calc_val=min(calc_val);
+
+		# If there are many DL values not represented, 
+		# mean will be over estimated, so use mode
+		dens=density(calc_val);
+		mode=dens$x[which.max(dens$y)];
+		cat("Estimated Mode: ", mode, "\n");
+
+		# Estimate sd based values above mode
+		ab_mod_ix=(calc_val>=mode);
+		num_abv=sum(ab_mod_ix);
+		sum_sqr=sum((calc_val[ab_mod_ix]-mode)^2);
+		sd=sqrt(sum_sqr/num_abv);
+		cat("Estimated SD: ", sd, " (n=", num_abv, ")\n");
+			
+		pr_x_lt_dl=pnorm(min_calc_val, mode, sd);
+		exp_val_below_dl=qnorm(pr_x_lt_dl/2, mode, sd);
+
+		cat("Detection Limit: ", min_calc_val, "\n");
+		cat("Prob(X<DL): ", pr_x_lt_dl, "\n");
+		cat("E[X<DL]: ", exp_val_below_dl, "\n");
+
+		# Undo transform
+		if(keep_trans){
+			loqv=exp(exp_val_below_dl);
+			if(p1){
+				loqv=loqv-1;
+			}	
+			cat("Estimated Untransformed LOQ: ", loqv, "\n");
+		}else{
+			loqv=exp_val_below_dl;
+		}
+
+		x[dl_pos]=loqv;
+
+		cat("After LOQ Analysis:\n");
+		print(x);
+		cat("\n");
+	}
+	return(x);
 
 }
 
@@ -460,8 +621,15 @@ for(cmd in commands){
 		results=eval(parse(text=cmd), envir=factors);
 		print(results);
 		cnames=colnames(factors);
-		factors=cbind(factors, results, stringsAsFactors=F);
-		colnames(factors)=c(cnames, lhs);
+
+		if(any(lhs==cnames)){
+			# Replace
+			factors[,lhs]=results;
+		}else{
+			# Append
+			factors=cbind(factors, results, stringsAsFactors=F);
+			colnames(factors)=c(cnames, lhs);
+		}
 	}
 	
 	cat("ok.\n");
