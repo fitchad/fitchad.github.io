@@ -420,6 +420,8 @@ str.split_keep=function(x, sep="\\.", keep_idx, join="."){
 	return(out_arr);
 }
 
+#This function adjusts splitting for 0159 MEDBIO sequencingIDs which 
+#contain an extra field after the studyID. 
 str.split_keep_MDBIO=function(x, sep="\\.", keep_idx, join="."){
         arr_len=length(x);
         out_arr=character(arr_len);
@@ -435,8 +437,25 @@ str.split_keep_MDBIO=function(x, sep="\\.", keep_idx, join="."){
 	return(out_arr);
 }
 
-
-
+#Used to reformat date conventions parsed from sequencingIDs. Standard format 
+#in the sequencingIDs is YYYYDDMM, this script will parse a column of dates in that format and 
+#return as DD/MM/YYYY. 
+date.reformat_CMM=function(x, split=character(0), join="/"){
+	arr_len=length(x);
+	out_arr=character(arr_len);
+	for(i in 1:arr_len){
+		splits=strsplit(x[i], split)[[1]];
+		if (length(splits)==8){
+			Y=paste(splits[1],splits[2],splits[3],splits[4],sep="")
+			D=paste(splits[5],splits[6],sep="")
+			M=paste(splits[7],splits[8],sep="")
+			out_arr[i]=paste(D,M,Y,sep=join)
+		}else{
+			out_arr[i]=x[i]
+		}
+	}
+	return(out_arr);
+}
 
 
 
