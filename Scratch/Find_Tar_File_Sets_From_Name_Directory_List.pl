@@ -17,6 +17,7 @@ use File::Basename;
 use File::Find;
 use vars qw($opt_r $opt_s $opt_o $opt_i $opt_c);
 use Cwd;
+use Archive::Tar;
 
 getopts("r:s:o:ic");
 my $usage = "usage: 
@@ -26,21 +27,22 @@ $0
 	-r <run path list>
 	-s <sampleID list>
 	-o <output name root>
-	-i [interpret sampleID list as a list of studyIDs]
-	-c [include controls in output if using studyID list option]
+#	-i [interpret sampleID list as a list of studyIDs]
+#	-c [include controls in output if using studyID list option]
 	
 
 	This script will look through all the fastq.gz files
-	in the specified path(s), and generate a sampleID to fastq.gz file
-	path for the listed sampleIDs. 
+	in the specified path(s), match them to the supplied sampleID list,
+	and create a tar.gz file containing the requested files. 
 
 	The run list file -r should be the full paths of where you want to
 	look for the fastq.gz files, for example:
 	/mnt/cmmnas02/SequencingRuns/20180934_efef_dfdfe__RN-0000/Run
 
-	The output file is:
+	The output file is a tar.gz file containing all matched R1 and R2 fastq.gz files.
+	All matched files will be dumped into a single directory as requested by SRA. 
 
-	<generated sample id> \\t <fastq.gz file path> \\n
+	
 
 ";
 
@@ -81,6 +83,8 @@ while(<R>) {
 }
 close(R);
 
+#Creates a list of sampleIDs from the input sampleID text list file
+
 open(S, $opt_s) or die("no file named: $opt_s!\n");
 while(<S>) {
 	chomp;
@@ -101,29 +105,36 @@ foreach my $runID(@runlist){
 }
 
 
-#Compares the sampleID list to the fullfastalist and creates a smaller list with matches
+#Compares the sampleID list to the fullfastalist and creates a smaller list that contains 
+#only pairs of R1 and R2 files. Should cover all interations of naming (ie, matching is permissive between
+#the sampleID and "_R1_001.fastq.gz". 
 
 foreach my $sname(@sampleIDlist){
-#	$sname=join "", $sname, ".+";
 	foreach my $fname(@fullfastalist){
-		if($fname =~/\/$sname\/{0}.+\_R[1|2]\_001\.fastq\.gz$/){
-			push @fastalist, $fname;
-		}
+               if($fname =~/(\/$sname\/{0}.+)\_R1\_001\.fastq\.gz$/){
+			my $tempname=$1;
+			foreach my $fname2(@fullfastalist){
+				if($fname2 =~/$tempname\_R2\_001\.fastq\.gz$/){
+				push @fastalist, $fname;
+				push @fastalist, $fname2;
+
+				}
+			}
+               }
+
 	}
 }
 
 print STDERR "Found FASTQ files: \n";
 my %map;
 foreach my $fpath(@fastalist){
-#        print STDERR "$fpath\n";
         my ($name, $path)=fileparse($fpath);
         @{$map{$fpath}}=$name;
+	print STDERR "$path\t$name\n";
 }
 
-
 #compare values from the sampleID list with found fastq.gz sample names.
-#Works now, however, only looks to see if the sampleID is in the hash, not if 
-#there is a pair of reads corresponding to it. 
+#Missing sampleIDs are printed to STDERR
 
 my %sampleIDHash;
 
@@ -134,11 +145,11 @@ if(not $opt_i){
 		$sampleIDHash{$jstring}=1;
 	}
 	#looking for all non-matched sampleIDs from the original list
-#	print STDERR "Did not find fasta for:\n";
+	print STDERR "Did not find fasta for:\n";
 	foreach my $sampleID(@sampleIDlist){
 		chomp $sampleID;
 		if(not exists($sampleIDHash{$sampleID})){
-#			print STDERR "$sampleID\n";
+			print STDERR "$sampleID\n";
 		}
 	}
 }
@@ -155,7 +166,7 @@ foreach my $fpath(keys %map){
         if(defined($uniq_hash{$samp_id})){
                 $uniq_hash{$samp_id}++;
                 $cnts_hash{$samp_id}++;
- #               print STDERR "Duplicated Sample ID found: $samp_id\n";
+#               print STDERR "Duplicated Sample ID found: $samp_id\n";
         }else{
                 $uniq_hash{$samp_id}=1;
                 $cnts_hash{$samp_id}=1;
@@ -164,6 +175,7 @@ foreach my $fpath(keys %map){
 
 my %sampid_to_path_hash;
 my %samp_to_uniqsamp_hash;
+
 # Append ID with r#
 #likely need to adjust this. since i will be dumping all files into the same directory, will
 #have to append the .r1 extension before the .fastq.gz. Also, will have to rename files on the 
@@ -223,6 +235,25 @@ if(not $opt_i){
 }
 
 close(OUT_FH);
+
+
+#-------------------------------------------------------------------------------
+
+#add prompt to create tarfile or skip due to missing samples
+#change output to dump into a single base directory
+
+my $tarfile=Archive::Tar->new; 
+
+foreach my $file(keys %map){
+
+	$tarfile->add_files("$file");
+}
+$tarfile->write("$output_fname.tgz", COMPRESS_GZIP); 
+
+
+
+
+
 
 
 ###############################################################################
