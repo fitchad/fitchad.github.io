@@ -109,6 +109,11 @@ foreach my $runID(@runlist){
 #only pairs of R1 and R2 files. Should cover all interations of naming (ie, matching is permissive between
 #the sampleID and "_R1_001.fastq.gz". 
 
+#this is matching incorrectly - i need to make sure it preserves the full path name in the match, or 
+#else it will match in different paths during the if($fname2) loop 
+
+
+
 foreach my $sname(@sampleIDlist){
 	foreach my $fname(@fullfastalist){
                if($fname =~/(\/$sname\/{0}.+)\_R1\_001\.fastq\.gz$/){
@@ -117,6 +122,7 @@ foreach my $sname(@sampleIDlist){
 				if($fname2 =~/$tempname\_R2\_001\.fastq\.gz$/){
 				push @fastalist, $fname;
 				push @fastalist, $fname2;
+				print STDERR "$fname\n$fname2\n";
 
 				}
 			}
@@ -125,12 +131,14 @@ foreach my $sname(@sampleIDlist){
 	}
 }
 
+
+#this is not printing out correct information. duplicates and wrong matches. 
 print STDERR "Found FASTQ files: \n";
 my %map;
 foreach my $fpath(@fastalist){
         my ($name, $path)=fileparse($fpath);
         @{$map{$fpath}}=$name;
-	print STDERR "$path\t$name\n";
+#	print STDERR "$path\t$name\n";
 }
 
 #compare values from the sampleID list with found fastq.gz sample names.
@@ -177,19 +185,29 @@ my %sampid_to_path_hash;
 my %samp_to_uniqsamp_hash;
 
 # Append ID with r#
-#likely need to adjust this. since i will be dumping all files into the same directory, will
-#have to append the .r1 extension before the .fastq.gz. Also, will have to rename files on the 
+#will have to rename files on the 
 #duplicated list prior to attempting to add to the tar.gz file. 
+
+#can clean this up. remove second if statement and just grab needed information for rename.  
+
 foreach my $fpath(keys %map){
         my $samp_id = join ".", @{$map{$fpath}};
-        my $uniq_samp_id=$samp_id;
+	my $uniq_samp_id=$samp_id;
         if($cnts_hash{$samp_id}>1){
-                $uniq_samp_id="$samp_id.r$uniq_hash{$samp_id}";
-                $uniq_hash{$samp_id}--;
-        }
+		if($samp_id =~ /(.+\_R[1|2]\_001)(\.fastq\.gz)/){
+			my $tname1=$1;
+			my $tname2=$2;
+			$uniq_samp_id="$tname1.r$uniq_hash{$samp_id}$tname2";
+#                $uniq_samp_id="$samp_id.r$uniq_hash{$samp_id}";
+                	$uniq_hash{$samp_id}--;
+		} 
+       }
         $sampid_to_path_hash{$uniq_samp_id}=$fpath;
+	
         $samp_to_uniqsamp_hash{$uniq_samp_id}=$samp_id;
 }
+
+
 
 
 ###############################################################################
@@ -197,7 +215,7 @@ foreach my $fpath(keys %map){
 open(OUT_FH, ">$output_fname") || die "Could not open $output_fname\n";
 
 foreach my $samp_id(sort keys %sampid_to_path_hash){
-	my $samp_id_cut = $samp_id =~ s/\_[[:alnum:]]+\_[[:alnum:]]+\_R[1|2]\_001\.fastq\.gz//r;
+	my $samp_id_cut = $samp_id =~ s/\_[[:alnum:]]+\_[[:alnum:]]+\_R[1|2]\_001*\.fastq\.gz//r;
         print OUT_FH "$samp_id_cut\t$sampid_to_path_hash{$samp_id}\n";
 }
 
@@ -240,7 +258,6 @@ close(OUT_FH);
 #-------------------------------------------------------------------------------
 
 #add prompt to create tarfile or skip due to missing samples
-#change output to dump into a single base directory
 
 my $tarfile=Archive::Tar->new; 
 
@@ -248,11 +265,16 @@ foreach my $file(keys %map){
 
 	$tarfile->add_files("$file");
 }
-$tarfile->write("$output_fname.tgz", COMPRESS_GZIP); 
+
+my @filenames=$tarfile->get_files;
+
+foreach my $samp_id(sort keys %sampid_to_path_hash){
+	$tarfile->rename($sampid_to_path_hash{$samp_id}, $samp_id);
+
+}
 
 
-
-
+$tarfile->write("$output_fname.tgz", COMPRESS_GZIP);
 
 
 
