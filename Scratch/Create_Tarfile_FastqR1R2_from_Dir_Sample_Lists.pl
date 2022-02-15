@@ -106,23 +106,23 @@ foreach my $runID(@runlist){
 
 
 #Compares the sampleID list to the fullfastalist and creates a smaller list that contains 
-#only pairs of R1 and R2 files. Should cover all interations of naming (ie, matching is permissive between
+#only pairs of R1 and R2 files. Should cover all iterations of naming (ie, matching is permissive between
 #the sampleID and "_R1_001.fastq.gz". 
 
-#this is matching incorrectly - i need to make sure it preserves the full path name in the match, or 
-#else it will match in different paths during the if($fname2) loop 
+#corrected - put path capture and reuse in match. should be good now. 
 
 
 
 foreach my $sname(@sampleIDlist){
 	foreach my $fname(@fullfastalist){
-               if($fname =~/(\/$sname\/{0}.+)\_R1\_001\.fastq\.gz$/){
-			my $tempname=$1;
+               if($fname =~/(^\/\S.+)(\/$sname\/{0}.+)\_R1\_001\.fastq\.gz$/){
+			my $pathname=$1;
+			my $tempname=$2;
 			foreach my $fname2(@fullfastalist){
-				if($fname2 =~/$tempname\_R2\_001\.fastq\.gz$/){
+				if($fname2 =~/$pathname$tempname\_R2\_001\.fastq\.gz$/){
 				push @fastalist, $fname;
 				push @fastalist, $fname2;
-				print STDERR "$fname\n$fname2\n";
+#				print STDERR "$fname\n$fname2\n";
 
 				}
 			}
@@ -138,7 +138,7 @@ my %map;
 foreach my $fpath(@fastalist){
         my ($name, $path)=fileparse($fpath);
         @{$map{$fpath}}=$name;
-#	print STDERR "$path\t$name\n";
+	print STDERR "$path\t$name\n";
 }
 
 #compare values from the sampleID list with found fastq.gz sample names.
@@ -262,15 +262,15 @@ close(OUT_FH);
 my $tarfile=Archive::Tar->new; 
 
 foreach my $file(keys %map){
-
 	$tarfile->add_files("$file");
 }
 
 my @filenames=$tarfile->get_files;
 
-foreach my $samp_id(sort keys %sampid_to_path_hash){
-	$tarfile->rename($sampid_to_path_hash{$samp_id}, $samp_id);
 
+foreach my $samp_id(sort keys %sampid_to_path_hash){
+	$sampid_to_path_hash{$samp_id} =~ s/.//; #this removes the leading "/" from the name in the map as it is not present in the file.
+	$tarfile->rename($sampid_to_path_hash{$samp_id}, $samp_id);
 }
 
 
