@@ -15,11 +15,11 @@ use Getopt::Std;
 use FileHandle;
 use File::Basename;
 use File::Find;
-use vars qw($opt_r $opt_s $opt_o $opt_i $opt_c);
+use vars qw($opt_r $opt_s $opt_o);
 use Cwd;
 use Archive::Tar;
 
-getopts("r:s:o:ic");
+getopts("r:s:o");
 my $usage = "usage: 
 
 $0 
@@ -27,8 +27,6 @@ $0
 	-r <run path list>
 	-s <sampleID list>
 	-o <output name root>
-#	-i [interpret sampleID list as a list of studyIDs]
-#	-c [include controls in output if using studyID list option]
 	
 
 	This script will look through all the fastq.gz files
@@ -146,19 +144,17 @@ foreach my $fpath(@fastalist){
 
 my %sampleIDHash;
 
-if(not $opt_i){
-	foreach my $string (keys %map){
-		my $jstring = join ".", @{$map{$string}};
-		$jstring =~ s/\_[[:alnum:]]+\_[[:alnum:]]+\_R[1|2]\_001\.fastq\.gz//;
-		$sampleIDHash{$jstring}=1;
-	}
-	#looking for all non-matched sampleIDs from the original list
-	print STDERR "Did not find fasta for:\n";
-	foreach my $sampleID(@sampleIDlist){
-		chomp $sampleID;
-		if(not exists($sampleIDHash{$sampleID})){
-			print STDERR "$sampleID\n";
-		}
+foreach my $string (keys %map){
+	my $jstring = join ".", @{$map{$string}};
+	$jstring =~ s/\_[[:alnum:]]+\_[[:alnum:]]+\_R[1|2]\_001\.fastq\.gz//;
+	$sampleIDHash{$jstring}=1;
+}
+#looking for all non-matched sampleIDs from the original list
+print STDERR "Did not find fasta for:\n";
+foreach my $sampleID(@sampleIDlist){
+	chomp $sampleID;
+	if(not exists($sampleIDHash{$sampleID})){
+		print STDERR "$sampleID\n";
 	}
 }
 
@@ -243,14 +239,13 @@ open(OUT_FH, ">$unmatched_sample_tsv") || die "Could not open $unmatched_sample_
 
 print OUT_FH "UmatchedID\n";
 
-if(not $opt_i){
-        foreach my $sampleID(@sampleIDlist){
-                chomp $sampleID;
-                if(not exists($sampleIDHash{$sampleID})){
-                        print OUT_FH "$sampleID\n";
+foreach my $sampleID(@sampleIDlist){
+        chomp $sampleID;
+        if(not exists($sampleIDHash{$sampleID})){
+                print OUT_FH "$sampleID\n";
                 }
-        }
 }
+
 
 close(OUT_FH);
 
