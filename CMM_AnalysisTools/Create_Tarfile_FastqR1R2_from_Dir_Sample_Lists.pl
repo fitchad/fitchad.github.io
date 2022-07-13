@@ -15,11 +15,11 @@ use Getopt::Std;
 use FileHandle;
 use File::Basename;
 use File::Find;
-use vars qw($opt_r $opt_s $opt_o);
+use vars qw($opt_r $opt_s $opt_o $opt_p);
 use Cwd;
 use Archive::Tar;
 
-getopts("r:s:o");
+getopts("r:s:o:p");
 my $usage = "usage: 
 
 $0 
@@ -27,6 +27,7 @@ $0
 	-r <run path list>
 	-s <sampleID list>
 	-o <output name root>
+	[-p <prompt before writing Tarfile>]
 	
 
 	This script will look through all the fastq.gz files
@@ -39,8 +40,12 @@ $0
 
 	The output file is a tar.gz file containing all matched R1 and R2 fastq.gz files.
 	All matched files will be dumped into a single directory as requested by SRA. 
+	Duplicated filenames will be appended with an .r# to make them unique
 
-	
+	If the -p prompt option is used, you will be asked if you would like to continue
+	to the tarfile creation step (ie, do you want to bother writing the tarfile based
+	on the missing/matched samples). Default is to write the file. If N is entered, the 
+	script will write out the log files and exit. 
 
 ";
 
@@ -52,10 +57,12 @@ if(!(
 }
 
 
-my $output_fname=$opt_o;
 my $run_list=$opt_r;
 my $sample_list=$opt_s;
+my $output_fname=$opt_o;
 my $studyID;
+
+my $write_file="Y";
 
 print STDERR "\n";
 
@@ -70,6 +77,7 @@ my @filelist;
 my @fastalist;
 my @fullfastalist;
 my @matchedlist;
+my $missingsamplecount=0;
 
 #Creates a list of runs from the input run list text file
 
@@ -95,8 +103,11 @@ close(S);
 my $cwd = cwd();
 
 #This searches each run directory and makes a list of all files under that run_path.
+
+#should update to limit to just fastq.gz files.
+
 foreach my $runID(@runlist){
-        @filelist=split "\n", `find $runID`;
+        @filelist=split "\n", `find $runID ! -type d`;
 	foreach my $filereturn(@filelist){
 		push @fullfastalist, $filereturn;
 	}
@@ -107,56 +118,93 @@ foreach my $runID(@runlist){
 #only pairs of R1 and R2 files. Should cover all iterations of naming (ie, matching is permissive between
 #the sampleID and "_R1_001.fastq.gz". 
 
-#corrected - put path capture and reuse in match. should be good now. 
 
+#foreach my $sname(@sampleIDlist){
+#	my $tempname;
+#	foreach my $fname(@fullfastalist){
+#		my($filename, $directory) = fileparse($fname);
+#		if($filename =~/$sname.+\_R1\_001\.fastq\.gz$/){
+#			$tempname = $fname;
+#			print STDERR $tempname;
+#			last;
+#		}
+#	}
+#	my $tempname2 = join "", $tempname;
+#	my $tempname2 =~ s/\_R1\_001\.fastq\.gz/\_R2\_001\.fastq\.gz/;
+#	
+#	foreach my $fname2(@fullfastalist){
+#		if ($tempname2 eq $fname2){
+#			push @fastalist, $tempname;
+#			push @fastalist, $fname2;
+#			last;
+#		}
+#	}
+#}
 
 
 foreach my $sname(@sampleIDlist){
 	foreach my $fname(@fullfastalist){
-               if($fname =~/(^\/\S.+)(\/$sname\/{0}.+)\_R1\_001\.fastq\.gz$/){
-			my $pathname=$1;
-			my $tempname=$2;
+		my($filename, $directory) = fileparse($fname);
+		if($filename =~/($sname.+)\_R1\_001\.fastq\.gz$/){
+			my $tempname=$1;
 			foreach my $fname2(@fullfastalist){
-				if($fname2 =~/$pathname$tempname\_R2\_001\.fastq\.gz$/){
-				push @fastalist, $fname;
-				push @fastalist, $fname2;
-#				print STDERR "$fname\n$fname2\n";
-
+				my($filename2, $directory2) = fileparse($fname2);
+				if($filename2 =~/$tempname\_R2\_001\.fastq\.gz$/){
+				
+		                       push @fastalist, $fname;
+        	       	               push @fastalist, $fname2;
 				}
 			}
-               }
-
+		}
 	}
 }
 
 
-#this is not printing out correct information. duplicates and wrong matches. 
+
+#makes a map of the path as key, filename as value
+# key includes the full filepath so as not to overwrite R1 with R2 later. 
+
 print STDERR "Found FASTQ files: \n";
 my %map;
 foreach my $fpath(@fastalist){
         my ($name, $path)=fileparse($fpath);
         @{$map{$fpath}}=$name;
+#	@{$map{$path}}=$name; ##error due to strict, can use string as array reference
 	print STDERR "$path\t$name\n";
 }
 
-#compare values from the sampleID list with found fastq.gz sample names.
-#Missing sampleIDs are printed to STDERR
+
 
 my %sampleIDHash;
 
-foreach my $string (keys %map){
-	my $jstring = join ".", @{$map{$string}};
-	$jstring =~ s/\_[[:alnum:]]+\_[[:alnum:]]+\_R[1|2]\_001\.fastq\.gz//;
-	$sampleIDHash{$jstring}=1;
+#parses out the filename from the filepath, substitues down to just the sampleID
+#and adds that value to hash.
+
+foreach my $fpath (keys %map){
+	my ($name, $path)=fileparse($fpath);
+#	my $filename= join "", @{$map{$my_path}};
+	$name=~ s/\_[[:alnum:]]+\_[[:alnum:]]+\_R[1|2]\_001\.fastq\.gz//;
+#	print STDERR "subbed down to name: $name\n";
+	$sampleIDHash{$name}=1;
 }
-#looking for all non-matched sampleIDs from the original list
-print STDERR "Did not find fasta for:\n";
+
+
+
+
+
+#this is only exact matching to original list
+
 foreach my $sampleID(@sampleIDlist){
-	chomp $sampleID;
-	if(not exists($sampleIDHash{$sampleID})){
-		print STDERR "$sampleID\n";
+	if(exists($sampleIDHash{$sampleID})){
+#		print STDERR" Found: $sampleID\n";
 	}
+	else{
+		print STDERR "Didn't find $sampleID\n";
+		$missingsamplecount=$missingsamplecount+1
+	}
+
 }
+
 
 
 # If any sample id's are redundant, try to make it unique
@@ -165,8 +213,8 @@ my %uniq_hash;
 my %cnts_hash;
 
 # Count duplicates
-foreach my $fpath(keys %map){
-        my $samp_id = join ".", @{$map{$fpath}};
+foreach my $sample_key(keys %map){
+        my $samp_id = join "", @{$map{$sample_key}};
         if(defined($uniq_hash{$samp_id})){
                 $uniq_hash{$samp_id}++;
                 $cnts_hash{$samp_id}++;
@@ -187,7 +235,7 @@ my %samp_to_uniqsamp_hash;
 #can clean this up. remove second if statement and just grab needed information for rename.  
 
 foreach my $fpath(keys %map){
-        my $samp_id = join ".", @{$map{$fpath}};
+        my $samp_id = join "", @{$map{$fpath}};
 	my $uniq_samp_id=$samp_id;
         if($cnts_hash{$samp_id}>1){
 		if($samp_id =~ /(.+\_R[1|2]\_001)(\.fastq\.gz)/){
@@ -211,7 +259,7 @@ foreach my $fpath(keys %map){
 open(OUT_FH, ">$output_fname") || die "Could not open $output_fname\n";
 
 foreach my $samp_id(sort keys %sampid_to_path_hash){
-	my $samp_id_cut = $samp_id =~ s/\_[[:alnum:]]+\_[[:alnum:]]+\_R[1|2]\_001*\.fastq\.gz//r;
+	my $samp_id_cut = $samp_id =~ s/\_[[:alnum:]]+\_[[:alnum:]]+\_R[1|2]\_001.*\.fastq\.gz//r;
         print OUT_FH "$samp_id_cut\t$sampid_to_path_hash{$samp_id}\n";
 }
 
@@ -225,8 +273,8 @@ open(OUT_FH, ">$collapse_rep_tsv") || die "Could not open $collapse_rep_tsv\n";
 print OUT_FH "ReplicateID\tSampleID\n";
 foreach my $uniq_samp_id(sort keys %samp_to_uniqsamp_hash){
 	my $repl_samp_id_cut = $uniq_samp_id =~ s/\.paired\.for\.fasta//r;
-	my $samp_id = $samp_to_uniqsamp_hash{$uniq_samp_id} =~ s/\.paired\.for\.fasta//r;
-        print OUT_FH "$repl_samp_id_cut\t$samp_id\n";
+	my $cut_samp_id = $samp_to_uniqsamp_hash{$uniq_samp_id} =~ s/\_[[:alnum:]]+\_[[:alnum:]]+\_R[1|2]\_001\.fastq\.gz//r;
+        print OUT_FH "$repl_samp_id_cut\t$cut_samp_id\n";
 }
 
 close(OUT_FH);
@@ -254,23 +302,40 @@ close(OUT_FH);
 
 #add prompt to create tarfile or skip due to missing samples
 
-my $tarfile=Archive::Tar->new; 
 
-foreach my $file(keys %map){
-	$tarfile->add_files("$file");
+if($opt_p){
+	print STDERR "There are: $missingsamplecount samples without matched fastq files\n";
+	print STDERR "Do you wish to write the Tarfile (Y or N)? ";
+	$write_file = <STDIN>;	
+	chomp $write_file;
+	if($write_file ne "Y"){
+		print STDERR "Writing Logs and Exiting...\n";
+	}
 }
 
-my @filenames=$tarfile->get_files;
+if ($write_file eq "Y"){
+
+	print STDERR "Writing Tarfile...\n";
+
+	my $tarfile=Archive::Tar->new; 
+
+	foreach my $file(keys %map){
+	#	print STDERR "@{$map{$file}}";
+	#	my $fpath_file = join("", "$file@{$map{$file}}" ); 
+		$tarfile->add_files("$file");
+	}
+
+	my @filenames=$tarfile->get_files;
 
 
-foreach my $samp_id(sort keys %sampid_to_path_hash){
-	$sampid_to_path_hash{$samp_id} =~ s/.//; #this removes the leading "/" from the name in the map as it is not present in the file.
-	$tarfile->rename($sampid_to_path_hash{$samp_id}, $samp_id);
+	foreach my $samp_id(sort keys %sampid_to_path_hash){
+		$sampid_to_path_hash{$samp_id} =~ s/.//; #this removes the leading "/" from the name in the map as it is not present in the file.
+		$tarfile->rename($sampid_to_path_hash{$samp_id}, $samp_id);
+	}
+
+
+	$tarfile->write("$output_fname.tgz", COMPRESS_GZIP);
 }
-
-
-$tarfile->write("$output_fname.tgz", COMPRESS_GZIP);
-
 
 
 ###############################################################################

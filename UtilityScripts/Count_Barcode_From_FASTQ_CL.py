@@ -249,7 +249,7 @@ if BClist:
                 print line, "\t", barcodeCountsDict[barcode]
                 matchedBC.append(barcode) # creates a list of matchedBCs
         
-'''# for printing matches to a file.   
+# for printing matches to a file.   
         barcodeCountsDictMatchedListOnly = barcodeCountsDict.copy()
         unmatchedBC=[]  
         
@@ -259,7 +259,7 @@ if BClist:
         for barcodeD in unmatchedBC:
             del barcodeCountsDictMatchedListOnly[barcodeD]
         table_dict_to_csv(OutputFile, barcodeCountsDictMatchedListOnly)
-'''
+
                 
             
 #Deletes matched barcodes (ie retains only barcodes not matched to provided list)
