@@ -18,9 +18,10 @@ and then create .csv file that has the barcode sequences and total counts
 of each barcode. Useful when looking at an undetermined file to see what 
 barcodes were not demuxed. 
 
-Barcode List has to be a TSV file containing the barcode sequence in a 
+The Barcode list has to be a TSV file containing the barcode sequence in a 
 user specified column or default of <BCName>\t<BCSequence>\t<AdditionalCols>.
-
+The Barcode list should contain a header column as that will be retained and 
+used in the output txt files. 
 
 For Barcode pairs, the barcode list file should contain a single column
 containing the barcodes as BC1+BC2 in the order of the index files created. 
