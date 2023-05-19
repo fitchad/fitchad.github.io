@@ -1,11 +1,11 @@
 #!/usr/bin/env perl
 
 #To Do:
-#1. look for a matching set of R1 and R2, report if not a complete.
-#2. Use the matched list to create a tar file with all the matched files in it
-#3. Since i will be dumping all files into the same directory, will
-#have to append the .r1 extension before the .fastq.gz. Also, will have to rename files on the 
-#duplicated list prior to attempting to add to the tar.gz file.
+#1.report if non matching pairs of R1 / R2.
+	# Done for R1...harder to do for R2 as everything is based off of R1. 
+	#. could simply repeat proceedure for R2 first and output results (but not record results for future use)
+#2. cleanup / remove unnecessary code
+#3. update outputs to have a sampleID/R1/R2 file
 
 ###############################################################################
 
@@ -147,14 +147,24 @@ foreach my $sname(@sampleIDlist){
 		my($filename, $directory) = fileparse($fname);
 		if($filename =~/($sname.+)\_R1\_001\.fastq\.gz$/){
 			my $tempname=$1;
+			my $bool=1;
 			foreach my $fname2(@fullfastalist){
 				my($filename2, $directory2) = fileparse($fname2);
-				if($filename2 =~/$tempname\_R2\_001\.fastq\.gz$/){
-				
-		                       push @fastalist, $fname;
-        	       	               push @fastalist, $fname2;
+#added 5/8/23. insures you are looking in the same directory for a matching R1/R2 pair
+					if($directory eq $directory2){
+
+						if($filename2 =~/$tempname\_R2\_001\.fastq\.gz$/){
+				                       push @fastalist, $fname;
+        			       	               push @fastalist, $fname2;
+							$bool=0;
+						}
+					}
+
 				}
+		if($bool){
+			print STDERR "found unmatched R1 file $filename\n";
 			}
+
 		}
 	}
 }
@@ -164,7 +174,7 @@ foreach my $sname(@sampleIDlist){
 #makes a map of the path as key, filename as value
 # key includes the full filepath so as not to overwrite R1 with R2 later. 
 
-print STDERR "Found FASTQ files: \n";
+print STDERR "Found matched FASTQ file pairs: \n";
 my %map;
 foreach my $fpath(@fastalist){
         my ($name, $path)=fileparse($fpath);
@@ -195,11 +205,13 @@ foreach my $fpath (keys %map){
 #this is only exact matching to original list
 
 foreach my $sampleID(@sampleIDlist){
+
 	if(exists($sampleIDHash{$sampleID})){
 #		print STDERR" Found: $sampleID\n";
 	}
 	else{
-		print STDERR "Didn't find $sampleID\n";
+		print STDERR "Didn't find exact match to $sampleID\n";
+		print STDERR "***There could be an iteration of this name so please check outputs***\n";
 		$missingsamplecount=$missingsamplecount+1
 	}
 
@@ -229,12 +241,11 @@ my %sampid_to_path_hash;
 my %samp_to_uniqsamp_hash;
 
 # Append ID with r#
-#will have to rename files on the 
-#duplicated list prior to attempting to add to the tar.gz file. 
 
 #can clean this up. remove second if statement and just grab needed information for rename.  
+#sorting keys first seems to clean up the mismatched r1/r2 problem. will need more testing. 
 
-foreach my $fpath(keys %map){
+foreach my $fpath(sort keys %map){
         my $samp_id = join "", @{$map{$fpath}};
 	my $uniq_samp_id=$samp_id;
         if($cnts_hash{$samp_id}>1){
@@ -256,8 +267,11 @@ foreach my $fpath(keys %map){
 
 ###############################################################################
 
-open(OUT_FH, ">$output_fname") || die "Could not open $output_fname\n";
+my $sampleID_path_map_tsv="$output_fname.sampleID_orig_fileloc.tsv";
 
+open(OUT_FH, ">$sampleID_path_map_tsv") || die "Could not open $sampleID_path_map_tsv\n";
+
+print OUT_FH "SampleID\tOriginalPath\n";
 foreach my $samp_id(sort keys %sampid_to_path_hash){
 	my $samp_id_cut = $samp_id =~ s/\_[[:alnum:]]+\_[[:alnum:]]+\_R[1|2]\_001.*\.fastq\.gz//r;
         print OUT_FH "$samp_id_cut\t$sampid_to_path_hash{$samp_id}\n";
@@ -270,7 +284,7 @@ close(OUT_FH);
 my $collapse_rep_tsv="$output_fname.clps.tsv";
 open(OUT_FH, ">$collapse_rep_tsv") || die "Could not open $collapse_rep_tsv\n";
 
-print OUT_FH "ReplicateID\tSampleID\n";
+print OUT_FH "Fastq.gz_File\tSampleID\n";
 foreach my $uniq_samp_id(sort keys %samp_to_uniqsamp_hash){
 	my $repl_samp_id_cut = $uniq_samp_id =~ s/\.paired\.for\.fasta//r;
 	my $cut_samp_id = $samp_to_uniqsamp_hash{$uniq_samp_id} =~ s/\_[[:alnum:]]+\_[[:alnum:]]+\_R[1|2]\_001\.fastq\.gz//r;
@@ -304,7 +318,7 @@ close(OUT_FH);
 
 
 if($opt_p){
-	print STDERR "There are: $missingsamplecount samples without matched fastq files\n";
+	print STDERR "There are: $missingsamplecount samples without exact match sampleID - fastq file pairs\n";
 	print STDERR "Do you wish to write the Tarfile (Y or N)? ";
 	$write_file = <STDIN>;	
 	chomp $write_file;
@@ -329,7 +343,7 @@ if ($write_file eq "Y"){
 
 
 	foreach my $samp_id(sort keys %sampid_to_path_hash){
-		$sampid_to_path_hash{$samp_id} =~ s/.//; #this removes the leading "/" from the name in the map as it is not present in the file.
+#		$sampid_to_path_hash{$samp_id} =~ s/.//; #this removes the leading "/" from the name in the map as it is not present in the file.
 		$tarfile->rename($sampid_to_path_hash{$samp_id}, $samp_id);
 	}
 

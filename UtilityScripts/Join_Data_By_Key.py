@@ -242,7 +242,7 @@ print("Number of unique keys: ", len(keyDictionary))
 with open(outputfile, 'w') as f:  # Just set 'w' mode in 3.x
     w = csv.writer(f, delimiter=fileType)
     #w = csv.writer(sys.stderr) #for debugging, prints to stdout
-    for key, values in keyDictionary.items():
+    for key, values in sorted(keyDictionary.items()):
         templist=[]
         templist2=[]
         templist.append(key)
