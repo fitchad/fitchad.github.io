@@ -5,7 +5,6 @@
 	# Done for R1...harder to do for R2 as everything is based off of R1. 
 	#. could simply repeat proceedure for R2 first and output results (but not record results for future use)
 #2. cleanup / remove unnecessary code
-#3. update outputs to have a sampleID/R1/R2 file
 
 ###############################################################################
 
@@ -38,14 +37,23 @@ $0
 	look for the fastq.gz files, for example:
 	/mnt/cmmnas02/SequencingRuns/20180934_efef_dfdfe__RN-0000/Run
 
+	The script now matches the directory name for R1/R2 file pairs so these
+	files should be in the same subdirectory. 
+
 	The output file is a tar.gz file containing all matched R1 and R2 fastq.gz files.
 	All matched files will be dumped into a single directory as requested by SRA. 
-	Duplicated filenames will be appended with an .r# to make them unique
+	Duplicated filenames will be appended with an .r# to make them unique.
 
 	If the -p prompt option is used, you will be asked if you would like to continue
-	to the tarfile creation step (ie, do you want to bother writing the tarfile based
-	on the missing/matched samples). Default is to write the file. If N is entered, the 
-	script will write out the log files and exit. 
+	to the tarfile creation step (ie, do you want to write the tarfile based
+	on the missing/matched samples). Default is to not write the tarfile unless Y is entered
+	at the prompt. If input other than 'Y' is entered, the script will write out the log files and exit. 
+
+
+	The following logfiles are created:
+	1. sampleID <\t> R1_file <\t> R2_file
+	2. filename <\t> original directory of file 
+	3. unmatched sampleID file
 
 ";
 
@@ -119,30 +127,9 @@ foreach my $runID(@runlist){
 #the sampleID and "_R1_001.fastq.gz". 
 
 
-#foreach my $sname(@sampleIDlist){
-#	my $tempname;
-#	foreach my $fname(@fullfastalist){
-#		my($filename, $directory) = fileparse($fname);
-#		if($filename =~/$sname.+\_R1\_001\.fastq\.gz$/){
-#			$tempname = $fname;
-#			print STDERR $tempname;
-#			last;
-#		}
-#	}
-#	my $tempname2 = join "", $tempname;
-#	my $tempname2 =~ s/\_R1\_001\.fastq\.gz/\_R2\_001\.fastq\.gz/;
-#	
-#	foreach my $fname2(@fullfastalist){
-#		if ($tempname2 eq $fname2){
-#			push @fastalist, $tempname;
-#			push @fastalist, $fname2;
-#			last;
-#		}
-#	}
-#}
-
 
 foreach my $sname(@sampleIDlist){
+
 	foreach my $fname(@fullfastalist){
 		my($filename, $directory) = fileparse($fname);
 		if($filename =~/($sname.+)\_R1\_001\.fastq\.gz$/){
@@ -157,6 +144,7 @@ foreach my $sname(@sampleIDlist){
 				                       push @fastalist, $fname;
         			       	               push @fastalist, $fname2;
 							$bool=0;
+
 						}
 					}
 
@@ -168,8 +156,6 @@ foreach my $sname(@sampleIDlist){
 		}
 	}
 }
-
-
 
 #makes a map of the path as key, filename as value
 # key includes the full filepath so as not to overwrite R1 with R2 later. 
@@ -197,8 +183,6 @@ foreach my $fpath (keys %map){
 #	print STDERR "subbed down to name: $name\n";
 	$sampleIDHash{$name}=1;
 }
-
-
 
 
 
@@ -281,20 +265,29 @@ close(OUT_FH);
 
 #-----------------------------------------------------------------------------
 
-my $collapse_rep_tsv="$output_fname.clps.tsv";
-open(OUT_FH, ">$collapse_rep_tsv") || die "Could not open $collapse_rep_tsv\n";
 
-print OUT_FH "Fastq.gz_File\tSampleID\n";
+my $map_tsv="$output_fname.map.tsv";
+open(OUT_FH, ">$map_tsv") || die "Could not open $map_tsv\n";
 foreach my $uniq_samp_id(sort keys %samp_to_uniqsamp_hash){
-	my $repl_samp_id_cut = $uniq_samp_id =~ s/\.paired\.for\.fasta//r;
-	my $cut_samp_id = $samp_to_uniqsamp_hash{$uniq_samp_id} =~ s/\_[[:alnum:]]+\_[[:alnum:]]+\_R[1|2]\_001\.fastq\.gz//r;
-        print OUT_FH "$repl_samp_id_cut\t$cut_samp_id\n";
+
+	if($uniq_samp_id =~/(.+)(\_R1\_001.*)\.fastq\.gz/){
+		my $tempname=$1;
+		my $repname=$2;
+		foreach my $samp_id_2(keys %samp_to_uniqsamp_hash){
+			my $repnameupd = $repname =~ s/\_R1\_001/\_R2\_001/r;
+			if($samp_id_2 =~/$tempname$repnameupd\.fastq\.gz/){
+
+				print OUT_FH "$tempname\t$uniq_samp_id\t$samp_id_2\n";
+			}
+		}
+
+	}
 }
 
 close(OUT_FH);
 
+#-----------------------------------------------------------------------------
 
-#------------------------------------------------------------------------------
 
 my $unmatched_sample_tsv="$output_fname.unmatched.tsv";
 open(OUT_FH, ">$unmatched_sample_tsv") || die "Could not open $unmatched_sample_tsv\n";
@@ -312,7 +305,8 @@ foreach my $sampleID(@sampleIDlist){
 close(OUT_FH);
 
 
-#-------------------------------------------------------------------------------
+
+#------------------------------------------------------------------------------
 
 #add prompt to create tarfile or skip due to missing samples
 
