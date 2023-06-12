@@ -276,8 +276,8 @@ foreach my $uniq_samp_id(sort keys %samp_to_uniqsamp_hash){
 		foreach my $samp_id_2(keys %samp_to_uniqsamp_hash){
 			my $repnameupd = $repname =~ s/\_R1\_001/\_R2\_001/r;
 			if($samp_id_2 =~/$tempname$repnameupd\.fastq\.gz/){
-
-				print OUT_FH "$tempname\t$uniq_samp_id\t$samp_id_2\n";
+				my $tempnamecut = $tempname =~ s/\_[[:alnum:]]+\_[[:alnum:]]+//r;
+				print OUT_FH "$tempnamecut\t$uniq_samp_id\t$samp_id_2\n";
 			}
 		}
 
@@ -296,6 +296,7 @@ print OUT_FH "UmatchedID\n";
 
 foreach my $sampleID(@sampleIDlist){
         chomp $sampleID;
+	print "$sampleID\n";
         if(not exists($sampleIDHash{$sampleID})){
                 print OUT_FH "$sampleID\n";
                 }
