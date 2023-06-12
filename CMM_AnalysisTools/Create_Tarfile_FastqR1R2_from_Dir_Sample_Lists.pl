@@ -255,10 +255,10 @@ my $sampleID_path_map_tsv="$output_fname.sampleID_orig_fileloc.tsv";
 
 open(OUT_FH, ">$sampleID_path_map_tsv") || die "Could not open $sampleID_path_map_tsv\n";
 
-print OUT_FH "SampleID\tOriginalPath\n";
+print OUT_FH "SampleID\tUniqueFileName\tOriginalPath\n";
 foreach my $samp_id(sort keys %sampid_to_path_hash){
 	my $samp_id_cut = $samp_id =~ s/\_[[:alnum:]]+\_[[:alnum:]]+\_R[1|2]\_001.*\.fastq\.gz//r;
-        print OUT_FH "$samp_id_cut\t$sampid_to_path_hash{$samp_id}\n";
+        print OUT_FH "$samp_id_cut\t$samp_id\t$sampid_to_path_hash{$samp_id}\n";
 }
 
 close(OUT_FH);
