@@ -1,17 +1,14 @@
 #!/usr/bin/env Rscript
 
-
-
-
 #Goals of Script
 #Merge a list of sampleIDs and a metadata file
 #To Do
 #2. Add an output list of discarded rows
 
-#Last Edit : 01/13/21 4pm
+#Last Edit : 08/17/23 4pm
 
 library("getopt");
-library("reshape2");
+library("reshape2", lib.loc="/home/acf/R/x86_64-pc-linux-gnu-library/3.6/");
 library("graphics");
 library("plyr")
 options(useFancyQuotes = F);
@@ -30,7 +27,8 @@ params = c(
   "columnsmeta", "C", 5, "list",
   "all_merge", "A", 6, "character",
   "slcolname", "S", 7, "character",
-  "mdcolname", "M", 8, "character"
+  "mdcolname", "M", 8, "character",
+  "headcolumn", "H", 9, "character"
   
 );
 
@@ -54,6 +52,8 @@ usage = paste(
   "\n",
   "[-C metadata_columns_to_retain] (should be written as 4,5,6,7, sampleIDs are Col1)\n",
   "\n",
+  "[-H headcolumn] Name of column to move to column 1 position\n",
+  "\n",
   "[-A all_merge] (should be L, R, or B. Default is discard if no match)\n",
   "\n",
   "This script is used to merge a list of sample IDs with a metadata file","\n",
@@ -65,9 +65,13 @@ usage = paste(
   "\n",
   "\n",
   "All metadata columns are retained, or specify retained columns by -L and -C", "\n",
-  "Be sure to include the ID column in the list of retained columns",
+  "Be sure to include the ID column in the list of retained columns", "\n",
   "\n",
-  "-A all_merge is used to do a Left, Right, or Both (union) merge, retaining all columns of respective sheet(s).",
+  "HeadColumn -H can be used to move a named column to the first column of the sheet, \n",
+  "If the same column name appears in both sheets and it is not the merge column", "\n",
+  "a .x or .y should be appended to the column name (Left or Right sheet, resp)", "\n",
+  "\n",
+  "all_merge -A is used to do a Left, Right, or Both (union) merge, retaining all columns of respective sheet(s).", "\n",
   "The default if option isn't selected is to discard non-matches (intersection). ",
   "\n",
   "\n"
@@ -124,6 +128,14 @@ if(!length(opt$mdcolname)){
 
 }
 
+if(!length(opt$headcolumn)){
+  HeadColumn=NULL
+}else{
+  HeadColumn=opt$headcolumn
+  
+}
+
+
 
 ALL.X=FALSE
 ALL.Y=FALSE
@@ -147,9 +159,6 @@ if(!length(opt$all_merge)){
   }
 }
 
-
-
-
 SampleListFname <- opt$samplelist
 #print(ColumnsToRetainMeta)
 
@@ -157,6 +166,7 @@ cat("\n", "\n");
 cat("Summary Table Filename: ", SampleListFname, "\n", sep="");
 cat("Metadata Filename: ", MetaDataFname, "\n", sep="");
 cat ("Output Filename: ", OutputFname, "\n", sep="");
+cat ("Head Column: ", HeadColumn, "\n", sep="");
 
 cat("\n", "\n");
 
@@ -203,8 +213,6 @@ if(is.null(MetadataColName)){
   BY.Y=colnames(MetaDataFile[1])
 }
 
-
-
 cat("\n")
 cat("Retaining SampleList Columns:", "\n")
 print(colnames(CountsMat))
@@ -245,6 +253,15 @@ if(nrow(CountsMat)==nrow(SummaryMetaMerge)){
   cat ("This may be intentional depending on the options/inputs selected")
   cat('\n')
 }
+
+if(!is.null(HeadColumn)){
+  HeadCol<- subset(SummaryMetaMerge, select = c(HeadColumn))
+  #HeadCol<- SummaryMetaMerge[ , names(SummaryMetaMerge) %in% HeadColumn] #this renames as "HeadColumn"
+  NotHeadCol<-SummaryMetaMerge[ , !names(SummaryMetaMerge) %in% HeadColumn]
+  SummaryMetaMerge<- cbind(HeadCol, NotHeadCol)
+  head(SummaryMetaMerge)
+}
+
 
 ### Writing CSV of reads comparison
 write.table(SummaryMetaMerge, file=OutputFname, quote=FALSE, row.names = FALSE, sep="\t")
