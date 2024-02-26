@@ -6,7 +6,6 @@
 	#. could simply repeat proceedure for R2 first and output results (but not record results for future use)
 #2. cleanup / remove unnecessary code
 
-
 ###############################################################################
 
 use strict;
@@ -19,7 +18,7 @@ use vars qw($opt_r $opt_s $opt_o $opt_p);
 use Cwd;
 use Archive::Tar;
 
-getopts("r:s:o:");
+getopts("r:s:o:p");
 my $usage = "usage: 
 
 $0 
@@ -27,6 +26,7 @@ $0
 	-r <run path list>
 	-s <sampleID list>
 	-o <output name root>
+	[-p <prompt before writing Tarfile>]
 	
 
 	This script will look through all the fastq.gz files
@@ -44,16 +44,16 @@ $0
 	All matched files will be dumped into a single directory as requested by SRA. 
 	Duplicated filenames will be appended with an .r# to make them unique.
 
-	User will be will be asked if they would like to continue
+	If the -p prompt option is used, you will be asked if you would like to continue
 	to the tarfile creation step (ie, do you want to write the tarfile based
-	on the missing/matched samples). If input other than 'Y' is entered, 
-	the script will only write out the log files and exit. 
+	on the missing/matched samples). Default is to not write the tarfile unless Y is entered
+	at the prompt. If input other than 'Y' is entered, the script will write out the log files and exit. 
 
 
 	The following logfiles are created:
-	1. Paired R1/R2 Map - SampleID <\t> UniqFileName_R1 <\t> UniqFileName_R2
-	2. Original Location of File - SampleID <\t> UniqFileName <\t> Original Directory/Filename
-	3. Unmatched sampleID file
+	1. sampleID <\t> R1_file <\t> R2_file
+	2. filename <\t> original directory of file 
+	3. unmatched sampleID file
 
 ";
 
@@ -70,7 +70,7 @@ my $sample_list=$opt_s;
 my $output_fname=$opt_o;
 my $studyID;
 
-my $write_file="N";
+my $write_file="Y";
 
 print STDERR "\n";
 
@@ -125,6 +125,7 @@ foreach my $runID(@runlist){
 #Compares the sampleID list to the fullfastalist and creates a smaller list that contains 
 #only pairs of R1 and R2 files. Should cover all iterations of naming (ie, matching is permissive between
 #the sampleID and "_R1_001.fastq.gz". 
+
 
 
 foreach my $sname(@sampleIDlist){
@@ -243,8 +244,8 @@ foreach my $fpath(sort keys %map){
         $sampid_to_path_hash{$uniq_samp_id}=$fpath;
 	
         $samp_to_uniqsamp_hash{$uniq_samp_id}=$samp_id;
-
 }
+
 
 
 
@@ -272,11 +273,11 @@ foreach my $uniq_samp_id(sort keys %samp_to_uniqsamp_hash){
 	if($uniq_samp_id =~/(.+)(\_R1\_001.*)\.fastq\.gz/){
 		my $tempname=$1;
 		my $repname=$2;
-		foreach my $uniq_samp_id_2(keys %samp_to_uniqsamp_hash){
+		foreach my $samp_id_2(keys %samp_to_uniqsamp_hash){
 			my $repnameupd = $repname =~ s/\_R1\_001/\_R2\_001/r;
-			if($uniq_samp_id_2 =~/$tempname$repnameupd\.fastq\.gz/){
+			if($samp_id_2 =~/$tempname$repnameupd\.fastq\.gz/){
 				my $tempnamecut = $tempname =~ s/\_[[:alnum:]]+\_[[:alnum:]]+//r;
-				print OUT_FH "$tempnamecut\t$uniq_samp_id\t$uniq_samp_id_2\n";
+				print OUT_FH "$tempnamecut\t$uniq_samp_id\t$samp_id_2\n";
 			}
 		}
 
@@ -307,13 +308,17 @@ close(OUT_FH);
 
 #------------------------------------------------------------------------------
 
+#add prompt to create tarfile or skip due to missing samples
 
-print STDERR "There are: $missingsamplecount samples without exact match sampleID - fastq file pairs\n";
-print STDERR "Do you wish to write the Tarfile (Y or N)? ";
-$write_file = <STDIN>;	
-chomp $write_file;
-if($write_file ne "Y"){
-	print STDERR "Writing Logs and Exiting...\n";
+
+if($opt_p){
+	print STDERR "There are: $missingsamplecount samples without exact match sampleID - fastq file pairs\n";
+	print STDERR "Do you wish to write the Tarfile (Y or N)? ";
+	$write_file = <STDIN>;	
+	chomp $write_file;
+	if($write_file ne "Y"){
+		print STDERR "Writing Logs and Exiting...\n";
+	}
 }
 
 if ($write_file eq "Y"){
@@ -332,7 +337,7 @@ if ($write_file eq "Y"){
 
 
 	foreach my $samp_id(sort keys %sampid_to_path_hash){
-#		$sampid_to_path_hash{$samp_id} =~ s/.//; #this removes the leading "/" from the name in the map as it is not present in the file.
+		$sampid_to_path_hash{$samp_id} =~ s/.//; #this removes the leading "/" from the name in the map as it is not present in the file.
 		$tarfile->rename($sampid_to_path_hash{$samp_id}, $samp_id);
 	}
 

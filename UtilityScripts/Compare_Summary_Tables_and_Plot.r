@@ -303,7 +303,7 @@ TableMelt <- melt_TableMerge(TableMerge)
 TableMaxReads <- max(TableMelt$value) # Getting max read value to keep ylim consistent across plots
 
 ### Writing CSV of reads comparison
-write.csv(TableMerge, file=OutputFnameCSV, row.names = FALSE)
+write.csv(TableMerge, file=OutputFnameCSV, quote=FALSE, row.names = FALSE)
 
 ### Reads Summary Stats ###
 for (i in 2:ncol(TableMerge)){

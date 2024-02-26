@@ -151,6 +151,9 @@ if(length(opt$mark_event)){
 	Events=opt$mark_event;
 	EventCatList=character();
 	EventCharList=character();
+
+	EventTypeList=list(); 
+
 	num_event_types=lengths(regmatches(Events, gregexpr("=", Events)));
 
 	if(num_event_types==0){
@@ -161,8 +164,16 @@ if(length(opt$mark_event)){
 			SingleEvent=unlist(strsplit(EventList[i], split='='));
 			EventCatList=c(EventCatList, SingleEvent[1]);
 			EventCharList=c(EventCharList, SingleEvent[2]);
+#added 11/10/23
+
+			if(SingleEvent[2]=="NA"){
+				EventTypeList=c(EventTypeList, FALSE)
+			}else{
+				EventTypeList=c(EventTypeList, TRUE)
+			}
 		}
 	}
+	print(EventTypeList)
 }
 
 
@@ -284,9 +295,14 @@ plot_dist=function(x, y, width=20, abundances){
 
 ###############################################################################
 
-plot_event=function(x, y, events, markers, col="black"){
-	print("%%%%%%%%%%%%%%%%%%%%%%%%%")
+plot_event=function(x, y, events, markers, isBool, col="black"){
 
+	#updated 11/10/23
+
+	print("%%%%%%%%%%%%%%%%%%%%%%%%%")
+	print(mean(unique(events)));
+	print(is.integer(events));
+	#if(is.integer(events) && mean(unique(events))==0.5){print("Match")}else{print("NOOOOOOOOO")}
 	#the original levels checking code does not work properly (all integer vectors are 0 levels).
 	#code below is checking for a boolean vetor (can only have 3 possible means of unique values)
 	#but is clumsy and I would like to find a better way to test for a 0/1 boolean vector.
@@ -294,22 +310,40 @@ plot_event=function(x, y, events, markers, col="black"){
 	#make it likely that you will eventually get a set with a spurious 0/0.5/1 mean due to the small
 	#number of values involved. 
 
-	if(is.integer(events) && mean(unique(events))==0.5){
+	if(isBool=="TRUE"){
                 pts=which(events==1);
                 points(x[pts], y[pts], type="p", pch=as.numeric(markers), font=2, cex=1.5, col=col);
                 points(x[pts], y[pts], type="p", pch=as.numeric(markers), cex=1, col=col);
-	}else if(is.integer(events) && mean(unique(events))==0){
-                pts=which(events==1);
-                points(x[pts], y[pts], type="p", pch=as.numeric(markers), font=2, cex=1.5, col=col);
-                points(x[pts], y[pts], type="p", pch=as.numeric(markers), cex=1, col=col);
-        }else if(is.integer(events) && mean(unique(events))==1){
-                pts=which(events==1);
-                points(x[pts], y[pts], type="p", pch=as.numeric(markers), font=2, cex=1.5, col=col);
-                points(x[pts], y[pts], type="p", pch=as.numeric(markers), cex=1, col=col);
-        }else{
+
+	}else{
+
                 text(x, y, as.character(events), col=col, cex=.7);
-        }
+
+	}
+
+
+
+
+#	if(is.integer(events) && mean(unique(events))==0.5){
+ #               pts=which(events==1);
+ #               points(x[pts], y[pts], type="p", pch=as.numeric(markers), font=2, cex=1.5, col=col);
+  #              points(x[pts], y[pts], type="p", pch=as.numeric(markers), cex=1, col=col);
+   #     }else if(is.integer(events) && mean(unique(events))==0){
+    #            pts=which(events==1);
+     #           points(x[pts], y[pts], type="p", pch=as.numeric(markers), font=2, cex=1.5, col=col);
+      #          points(x[pts], y[pts], type="p", pch=as.numeric(markers), cex=1, col=col);
+#        }else if(is.integer(events) && mean(unique(events))==1){
+ #               pts=which(events==1);
+  #              points(x[pts], y[pts], type="p", pch=as.numeric(markers), font=2, cex=1.5, col=col);
+   #             points(x[pts], y[pts], type="p", pch=as.numeric(markers), cex=1, col=col);
+    #    }else{
+     #           text(x, y, as.character(events), col=col, cex=.7);
+#        }
 }
+
+
+
+
 
 
 plot_sample_distributions_by_individual=function(diversity_arr, div_type, normalized_mat, 
@@ -442,7 +476,7 @@ plot_sample_distributions_by_individual=function(diversity_arr, div_type, normal
                        for(e_ix in 1:num_event_types){
 		#		markers=EventCharList[e_ix] 
 				plot_event(x=offset_info[,"Offsets"],
-					y=subset_diversity+char_height*e_ix, events=events_mat[, e_ix], markers=EventCharList[e_ix]);
+					y=subset_diversity+char_height*e_ix, events=events_mat[, e_ix], markers=EventCharList[e_ix], isBool=EventTypeList[e_ix]); #updated 11/10/23
                        }
                 }
 
@@ -484,7 +518,7 @@ plot_sample_distributions_by_individual=function(diversity_arr, div_type, normal
                        for(e_ix in 1:num_event_types){
 				#markers=EventCharList[e_ix]
                                 plot_event(x=offset_info[subset_samples, "Offsets"],
-                                       y=rep(1.075+(e_ix-1)*char_height, num_members), events=events_mat[, e_ix], markers=EventCharList[e_ix]);
+                                       y=rep(1.075+(e_ix-1)*char_height, num_members), events=events_mat[, e_ix], markers=EventCharList[e_ix], isBool=EventTypeList[e_ix]);
                        }
                 }
 
@@ -912,7 +946,7 @@ plot_sample_distributions_by_group=function(normalized_mat, offsets_rec, grp_to_
                                for(e_ix in 1:num_event_types){
 					markers=EventCharList[e_ix]
                                         plot_event(x=ind_offset[subset_samples, "Offsets"],
-                                               y=rep(1.15+(e_ix-1)*char_height, num_timepts), events=events_mat[, e_ix], markers=markers);
+                                               y=rep(1.15+(e_ix-1)*char_height, num_timepts), events=events_mat[, e_ix], markers=markers, isBool=EventTypeList[e_ix]); #updated 11/10/23
                                }
                        }
                 

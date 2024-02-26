@@ -305,30 +305,6 @@ offsets_by_group=function(abs, ref, grp){
 	return(out);
 }
 
-
-
-periodicity_by_group=function(abs, grp){
-  # This function will calculate the periodicity for abs. 
-  # Based on KL's offsets_by_group function. 
-  uniq_grps=unique(grp);
-  num_uniq_grp=length(uniq_grps);
-  num_rows=length(abs);
-  out=rep(0, num_rows); #creates vector of 0s the length of input column
-  for(i in 1:num_uniq_grp){
-    grp_ix=(grp==uniq_grps[i]); #creates a boolean vector indicating group status
-    int_vect=which(grp_ix); #returns index number of group status from boolean
-    grp_val=abs[grp_ix];
-    for(j in 1:length(int_vect)){
-      out[int_vect[j]]=grp_val[j+1]-grp_val[j]
-    }
-
-  }
-
-  return(out);
-}
-
-
-
 indices_by_group=function(abs, grp){
 	uniq_grps=unique(grp);
 	num_uniq_grp=length(uniq_grps);
@@ -420,6 +396,10 @@ str.split_keep=function(x, sep="\\.", keep_idx, join="."){
 	return(out_arr);
 }
 
+
+##Added by ACF
+
+
 #This function adjusts splitting for 0159 MEDBIO sequencingIDs which 
 #contain an extra field after the studyID. 
 str.split_keep_MDBIO=function(x, sep="\\.", keep_idx, join="."){
@@ -455,6 +435,60 @@ date.reformat_CMM=function(x, split=character(0), join="/"){
 		}
 	}
 	return(out_arr);
+}
+
+#Used to return the min and max of a given date offset
+return_min_max_of_offset=function(grp, abs, ref=NULL){
+        uniq_grps=unique(grp);
+        num_uniq_grp=length(uniq_grps);
+        num_rows=length(abs);
+        out=rep(0, num_rows);
+        for(i in 1:num_uniq_grp){
+                grp_ix=(grp==uniq_grps[i]);
+                grp_val=abs[grp_ix];
+                if(is.null(ref)){
+                        min_val=min(grp_val, na.rm=T);
+			max_val=max(grp_val, na.rm=T);
+                }else{
+                        min_val=min(c(grp_val, ref[grp_ix]), na.rm=T);
+			max_val=max(c(grp_val, ref[grp_ix]), na.rm=T);
+                }
+#		print(paste(min_val, max_val))
+
+		int_vect=which(grp_ix); #returns index number of group status from boolean
+		for(j in 1:length(int_vect)){
+		       	if(grp_val[j]==min_val){
+                        	out[int_vect[j]]=1
+			}else if(grp_val[j]==max_val){
+				out[int_vect[j]]=1
+			}else{
+				out[int_vect[j]]=0
+			}		    
+		}
+        }
+        return(out);
+}	
+
+
+periodicity_by_group=function(abs, grp){
+  # This function will calculate the periodicity for abs.
+  # Based on KL's offsets_by_group function.
+  # Has to be presorted on the metadata sheet. should update this to fix that.
+  uniq_grps=unique(grp);
+  num_uniq_grp=length(uniq_grps);
+  num_rows=length(abs);
+  out=rep(0, num_rows); #creates vector of 0s the length of input column
+  for(i in 1:num_uniq_grp){
+    grp_ix=(grp==uniq_grps[i]); #creates a boolean vector indicating group status
+    int_vect=which(grp_ix); #returns index number of group status from boolean
+    grp_val=abs[grp_ix];
+    for(j in 1:length(int_vect)){
+      out[int_vect[j]]=grp_val[j+1]-grp_val[j]
+    }
+
+  }
+
+  return(out);
 }
 
 

@@ -8,7 +8,7 @@
 #Last Edit : 08/17/23 4pm
 
 library("getopt");
-library("reshape2", lib.loc="/home/acf/R/x86_64-pc-linux-gnu-library/3.6/");
+library("reshape2");
 library("graphics");
 library("plyr")
 options(useFancyQuotes = F);
