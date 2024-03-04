@@ -492,6 +492,22 @@ periodicity_by_group=function(abs, grp){
 }
 
 
+date_retriever=function(col, sep="[.]", len=8){
+  num_rows=length(col);
+  out=rep(0, num_rows);
+  for (i in 1:num_rows){
+    splits=strsplit(col[i], sep);
+    for (j in 1:length(splits[[1]])){
+      part=(as.numeric(splits[[1]][j]))
+      if (!is.na(part) & nchar(part)==len){
+        out[i]=part
+      }
+    }
+  }
+  return(out);
+}
+
+
 
 #------------------------------------------------------------------------------
 
