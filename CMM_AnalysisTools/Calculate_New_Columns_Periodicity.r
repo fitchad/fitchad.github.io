@@ -424,7 +424,7 @@ date.reformat_CMM=function(x, split=character(0), join="/"){
 	arr_len=length(x);
 	out_arr=character(arr_len);
 	for(i in 1:arr_len){
-		splits=strsplit(x[i], split)[[1]];
+		splits=strsplit(as.character(x[i]), split)[[1]];
 		if (length(splits)==8){
 			Y=paste(splits[1],splits[2],splits[3],splits[4],sep="")
 			D=paste(splits[5],splits[6],sep="")
