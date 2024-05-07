@@ -7,13 +7,13 @@ params=c("input_file", "i", 1, "character",
 	"drop_list", "d", 2, "character", 
 	"taxa_column_name", "t", 2, "character", 
 	"output_file", "o", 1, "character"
-); 
+);
 
 opt=getopt(spec=matrix(params, ncol=4, byrow=TRUE), debug=FALSE); 
 
 script_name=unlist(strsplit(commandArgs(FALSE)[4],"=")[1])[2]; 
 
-usage = paste (
+usage = paste(
 	"\nUsage:\n\n", script_name, 
 	"\n", " 
 		-i <input summary_table.tsv>\n", 
@@ -31,12 +31,14 @@ usage = paste (
 	"of 'tax' is set .\n", 
 	"\n");
 
-if(!length(opt$input_file) || !length(opt$output_file)){ cat(usage); q(status=-1);
+if(!length(opt$input_file) || !length(opt$output_file)){ 
+  cat(usage);
+  q(status=-1);
 }
 
 
 TaxaColumnName="tax"; 
-if(length(opt$column_name)){ 
+if(length(opt$column_name)){
 	TaxaColumnName=opt$taxa_column_name;
 }
 
@@ -55,7 +57,7 @@ if(length(opt$drop_list)){
 	DropList=as.vector(read.table(opt$drop_list, header=FALSE, comment.char="#", sep="\t")[,1]);
 }else{
 	DropList=c("total", "superkingdom", "kingdom", "phylum", "class", "order", "family", "genus"); 
-	cat ("Drop list: ", DropList, "\n");
+	cat("Drop list: ", DropList, "\n");
 }
 
 if(InputFileName==OutputFileName){ 
@@ -74,19 +76,18 @@ load_factors=function(fname){
 	return(factors);
 }
 
+#move column to first position
 make_key=function(fname, key_col){
-  # move column to first position
 	key_col_val=fname[, key_col, drop=F]; 
 	cnames=colnames(fname); 
 	cnames=setdiff(cnames, key_col); 
-	factors=cbind(key_col_val, 
-	fname[,cnames,drop=F]);
+	factors=cbind(key_col_val, fname[,cnames,drop=F]);
 }
 
 drop_columns=function(fname, drop_list){ 
 	cnames=colnames(fname); 
 	cnames=setdiff(cnames, drop_list); 
-	factors=cbind(fname[,cnames,drop=F])
+	factors=cbind(fname[,cnames,drop=F]);
 }
 
 write_table=function(fname, table){
@@ -94,11 +95,9 @@ write_table=function(fname, table){
         cat("Rows Exporting: ", dimen[1], "\n");
         cat("Cols Exporting: ", dimen[2], "\n");
         write.table(table, fname, quote=F, row.names=F, sep="\t");
-
 }
 
 #############################################################################################################################
-
 
 
 ##Load Data
@@ -111,7 +110,7 @@ inmat=make_key(inmat, TaxaColumnName);
 inmat=drop_columns(inmat, DropList);
 
 #Grabbing taxonomy into a vector
-new_col_names=inmat$tax;
+new_col_names=inmat$TaxaColumnName;
 
 #Dropping the taxa column now that it is saved in a vector
 inmat=drop_columns(inmat, TaxaColumnName);
@@ -119,6 +118,7 @@ inmat=drop_columns(inmat, TaxaColumnName);
 #transposing the table
 inmat=as.data.frame(t(inmat));
 
+#Renaming the columns with the taxonomy
 colnames(inmat)<-new_col_names;
 
 #capturing the sampleIDs
@@ -134,7 +134,7 @@ for(samp_idx in 1:num_samples){
 } 
 
 #binding together the columns.
-inmat=cbind(sample_ID, total, inmat)
+inmat=cbind(sample_ID, total, inmat);
 
 #Table will write out without the row names, as they have been duplicated into the first column
 write_table(OutputFileName, inmat);
