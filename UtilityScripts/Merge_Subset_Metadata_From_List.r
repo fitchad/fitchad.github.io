@@ -1,18 +1,16 @@
 #!/usr/bin/env Rscript
 
 #Goals of Script
-#Merge a list of sampleIDs and a metadata file
+#Merge two sheets and a metadata file
 #To Do
-#2. Add an output list of discarded rows
+#1. Print out list of discarded rows
 
-#Last Edit : 06/12/24 4pm
-#added the ability to merge on multiple columns
+#Last Edit : 07/24/24
 
 library("getopt");
 library("reshape2");
 library("graphics");
-library("plyr");
-
+library("plyr")
 options(useFancyQuotes = F);
 
 
@@ -28,9 +26,10 @@ params = c(
   "columnslist", "L", 4, "list",
   "columnsmeta", "C", 5, "list",
   "all_merge", "A", 6, "character",
-  "slcolname", "S", 7, "list",
-  "mdcolname", "M", 8, "list",
-  "headcolumn", "H", 9, "character"
+  "slcolname", "S", 7, "character",
+  "mdcolname", "M", 8, "character",
+  "headcolumn", "H", 9, "character",
+  "replace", "R", 10, "list"
   
 );
 
@@ -44,39 +43,41 @@ usage = paste(
   "\n",
   "-m <metadata>\n",
   "\n",
-  "[-S slcolname] List of colnames from Sample List to merge on \n",
+  "[-S slcolname] Sample List column name to merge on \n",
   "\n",
-  "[-M mdcolname] List of colnames from Metadata to merge on \n",
+  "[-M mdcolname] Metadata column name to merge on \n",
   "\n",
   "[-o outputfilename]\n",
   "\n",
-  "[-L samplelist_columns_to_retain] (should be written as 4,5,6,7)\n",
+  "[-L samplelist_columns_to_retain] (should be written as SampleID,SampleDate,DOB)\n",
   "\n",
-  "[-C metadata_columns_to_retain] (should be written as 4,5,6,7)\n",
+  "[-C metadata_columns_to_retain] (should be written as SampleID,BMI,Age)\n",
   "\n",
   "[-H headcolumn] Name of column to move to column 1 position\n",
   "\n",
   "[-A all_merge] (should be L, R, or B. Default is discard if no match)\n",
   "\n",
-  "This script is used to merge two sheets","\n",
+  "[-R replace] ColA,ColB names. Will replace NA values in ColA with values from ColB\n",
+  "\n",
+  "This script is used to merge a list of sample IDs with a metadata file","\n",
+  "in order to trim down a larger list of sample metadata to a specific set.", "\n",
   "\n",
   "It can also be used to merge two metadata sheets.", "\n",
   "\n",
-  "If no column names are specified, the first column of each will be used.",
-  "\n",
-  "More than 1 column name can be supplied for the -S and -M in order to merge on multiple columns.\n",
-  "The supplied lists of column names must be the same length and in the merge order.\n",
+  "If -S -M are not specified, the first column of each sheet will be used as the merge column.", "\n",
   "\n",
   "All metadata columns are retained, or specify retained columns by -L and -C", "\n",
-  "Be sure to include the ID column in the list of retained columns", "\n",
+  "Be sure to include the merge column in the list of retained columns", "\n",
   "\n",
   "HeadColumn -H can be used to move a named column to the first column of the sheet, \n",
   "If the same column name appears in both sheets and it is not the merge column", "\n",
   "a .x or .y should be appended to the column name (Left or Right sheet, resp)", "\n",
   "\n",
-  "All_merge -A is used to do a Left, Right, or Both (union) merge, retaining all columns of respective sheet(s).", "\n",
-  "The default option if -A isn't declared is to discard non-matches (intersection). ",
+  "all_merge -A is used to do a Left, Right, or Both (union) merge, retaining all columns of respective sheet(s).", "\n",
+  "The default option is to discard non-matches (intersection). ",
   "\n",
+  "replace -R will replace NA values in ColA with values in ColB, if they exist\n",
+  "This action occurs after merging DF1 and DF2. ColB will be removed from the final output.\n",
   "\n"
   
 );
@@ -95,7 +96,7 @@ if(!length(opt$metadata)){
 
 
 if(!length(opt$outputfilename)){
-  OutputFname=tools::file_path_sans_ext(basename(opt$samplelist));
+  OutputFname=tools::file_path_sans_ext(opt$samplelist)
   OutputFname=paste(OutputFname, ".Updated.tsv", sep="");
 }else{
   OutputFname=opt$outputfilename;
@@ -106,7 +107,7 @@ if(!length(opt$columnslist)){
 }else{
   ColumnsToRetainList=opt$columnslist;
   ColumnsToRetainList=strsplit(ColumnsToRetainList, ",")
-  ColumnsToRetainList=as.numeric(unlist(ColumnsToRetainList[[1]]))
+  ColumnsToRetainList=as.character(unlist(ColumnsToRetainList[[1]]))
 }
 
 if(!length(opt$columnsmeta)){
@@ -114,38 +115,38 @@ if(!length(opt$columnsmeta)){
 }else{
   ColumnsToRetainMeta=opt$columnsmeta;
   ColumnsToRetainMeta=strsplit(ColumnsToRetainMeta, ",")
-  ColumnsToRetainMeta=as.numeric(unlist(ColumnsToRetainMeta[[1]]))
+  ColumnsToRetainMeta=as.character(unlist(ColumnsToRetainMeta[[1]]))
 }
 
 if(!length(opt$slcolname)){
   SampleColName=NULL
 }else{
   SampleColName=opt$slcolname
-  SampleColName=strsplit(SampleColName, ",")
-  SampleColName=unlist(SampleColName[[1]])
-     
+  
 }
 if(!length(opt$mdcolname)){
   MetadataColName=NULL
 }else{    
   MetadataColName=opt$mdcolname
-  MetadataColName=strsplit(MetadataColName, ",")
-  MetadataColName=unlist(MetadataColName[[1]])
-
+  
 }
-
-if(length(MetadataColName)!=length(SampleColName)){
-  cat("**** Mismatch in number of merge columns ****\n")
-  cat(usage);
-  q(status=-1);
-}
-
-
 
 if(!length(opt$headcolumn)){
-  HeadColumn=NULL
+  HeadColumn=NA
 }else{
   HeadColumn=opt$headcolumn
+  
+}
+
+if(!length(opt$replace)){
+  OldColumn=NULL
+  NewColumn=NULL
+}else{
+  ColumnsToReplace=opt$replace;
+  ColumnsToReplace=strsplit(ColumnsToReplace, ",")
+  ColumnsToReplace=(unlist(ColumnsToReplace[[1]]))
+  OldColumn=ColumnsToReplace[1]
+  NewColumn=ColumnsToReplace[2]
   
 }
 
@@ -174,12 +175,18 @@ if(!length(opt$all_merge)){
 }
 
 SampleListFname <- opt$samplelist
+#print(ColumnsToRetainMeta)
 
 cat("\n", "\n");
 cat("Summary Table Filename: ", SampleListFname, "\n", sep="");
 cat("Metadata Filename: ", MetaDataFname, "\n", sep="");
 cat ("Output Filename: ", OutputFname, "\n", sep="");
-cat ("Head Column: ", HeadColumn, "\n", sep="");
+if(length(opt$headcolumn)){
+  cat ("Head Column: ", HeadColumn, "\n", sep="");
+}
+if(length(opt$replace)){
+  cat ("Merging", NewColumn, "into", OldColumn, "\n", sep=" ")
+}
 
 cat("\n", "\n");
 
@@ -199,17 +206,22 @@ load_factors=function(fname, cols){
   
 }
 
+#  factors=as.data.frame(read.delim(fname, header=TRUE, row.names=1, check.names=FALSE, sep = "\t"));
 
 ###################
 #### Load data ####
 ###################
+
+#Load initial table, keep sampleIDs
+#inmat=as.data.frame(read.table(SampleListFname, sep="\t", header=TRUE, row.names=1, check.names=FALSE, quote=NULL))
+#CountsMat<-as.data.frame(inmat[,0, drop=FALSE]) #retains row names only
 
 CountsMat<-load_factors(SampleListFname, ColumnsToRetainList)
 NumberColumnsList <- ncol(CountsMat)
 
 MetaDataFile<-load_factors(MetaDataFname, ColumnsToRetainMeta)
 NumberColumnsMeta <- ncol(MetaDataFile)
-print (MetaDataFile)
+#print (MetaDataFile)
 
 BY.X=SampleColName
 if(is.null(SampleColName)){
@@ -239,9 +251,24 @@ cat("\n")
 
 
 #Merging Summary Table Reads and Metadata File
-
-
 SummaryMetaMerge<- merge(CountsMat, MetaDataFile, by.x=BY.X, by.y=BY.Y, all.x=ALL.X, all.y=ALL.Y)
+
+#Updating column A with column B values, if specified.
+if(!is.null(OldColumn)){
+  nrows=length(SummaryMetaMerge[[OldColumn]])
+  out=rep(0, nrows)
+  #if(!is.na(as.character(SummaryMetaMerge[[OldColumn]][[i]]))){   
+  for(i in 1:nrows){
+    if(!is.na(SummaryMetaMerge[[OldColumn]][[i]])){
+      out[i]=as.character(SummaryMetaMerge[[OldColumn]][[i]])
+    }else{
+      out[i]=as.character(SummaryMetaMerge[[NewColumn]][[i]])
+    }
+  }
+  SummaryMetaMerge[OldColumn]<-out
+  SummaryMetaMerge <-SummaryMetaMerge[ , !names(SummaryMetaMerge) %in% NewColumn]
+}
+
 
 names(SummaryMetaMerge)[names(SummaryMetaMerge)=="Row.names"] <- "SampleID"
 
@@ -264,10 +291,12 @@ if(nrow(CountsMat)==nrow(SummaryMetaMerge)){
   cat('\n')
 }
 
-if(!is.null(HeadColumn)){
+if(!is.na(HeadColumn)){
   HeadCol<- subset(SummaryMetaMerge, select = c(HeadColumn))
+  #HeadCol<- SummaryMetaMerge[ , names(SummaryMetaMerge) %in% HeadColumn] #this renames as "HeadColumn"
   NotHeadCol<-SummaryMetaMerge[ , !names(SummaryMetaMerge) %in% HeadColumn]
   SummaryMetaMerge<- cbind(HeadCol, NotHeadCol)
+  cat('\n')
   head(SummaryMetaMerge)
 }
 
