@@ -74,7 +74,7 @@ usage = paste(
   "a .x or .y should be appended to the column name (Left or Right sheet, resp)", "\n",
   "\n",
   "all_merge -A is used to do a Left, Right, or Both (union) merge, retaining all columns of respective sheet(s).", "\n",
-  "The default option is to discard non-matches (intersection). ",
+  "The default option is to discard non-matches (intersection).", "\n",
   "\n",
   "replace -R will replace NA values in ColA with values in ColB, if they exist\n",
   "This action occurs after merging DF1 and DF2. ColB will be removed from the final output.\n",
