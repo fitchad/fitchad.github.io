@@ -4,7 +4,7 @@
 #This script will read in a tsv file with an awful header, NULL the header, and replace with the newHeader.
 #You will have to type out the vector in the list below, or read in a file with the header names.
 #The input text file with the new header names should be a 1 dimentional list with no header value [1 column, N of rows to match the total number of columns in original file]
-#Pre check for the correct dimensions of the old/new header prior to using.
+#Pre check for the correct dimensions of the old/new header prior
 
 
 
