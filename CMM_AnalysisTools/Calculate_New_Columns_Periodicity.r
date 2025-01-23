@@ -437,43 +437,91 @@ date.reformat_CMM=function(x, split=character(0), join="/"){
 	return(out_arr);
 }
 
-#Used to return the min and max of a given date offset
-return_min_max_of_offset=function(grp, abs, ref=NULL){
-        uniq_grps=unique(grp);
-        num_uniq_grp=length(uniq_grps);
-        num_rows=length(abs);
-        out=rep(0, num_rows);
-        for(i in 1:num_uniq_grp){
-                grp_ix=(grp==uniq_grps[i]);
-                grp_val=abs[grp_ix];
-                if(is.null(ref)){
-                        min_val=min(grp_val, na.rm=T);
-			max_val=max(grp_val, na.rm=T);
-                }else{
-                        min_val=min(c(grp_val, ref[grp_ix]), na.rm=T);
-			max_val=max(c(grp_val, ref[grp_ix]), na.rm=T);
-                }
-#		print(paste(min_val, max_val))
-
-		int_vect=which(grp_ix); #returns index number of group status from boolean
-		for(j in 1:length(int_vect)){
-		       	if(grp_val[j]==min_val){
-                        	out[int_vect[j]]=1
-			}else if(grp_val[j]==max_val){
-				out[int_vect[j]]=1
-			}else{
-				out[int_vect[j]]=0
-			}		    
-		}
-        }
-        return(out);
-}	
 
 
-periodicity_by_group=function(abs, grp){
-  # This function will calculate the periodicity for abs.
-  # Based on KL's offsets_by_group function.
-  # Has to be presorted on the metadata sheet. should update this to fix that.
+#Used to mark the min and max offsets for a given group (ie the first and last sample)
+#creates a boolean vector
+
+return_min_max_of_offset <- function(grp, abs, ref = NULL) {
+  uniq_grps <- unique(grp)  # Get unique group names
+  num_uniq_grp <- length(uniq_grps)  # Number of unique groups
+  num_rows <- length(abs)  # Number of rows in 'abs'
+  out <- rep(0, num_rows)  # Initialize the output vector
+  
+  # Loop through each unique group
+  for (i in 1:num_uniq_grp) {
+    grp_ix <- (grp == uniq_grps[i])  # Boolean vector for group membership
+    grp_val <- abs[grp_ix]  # Values corresponding to the current group
+    
+    # Compute min/max for the group (and reference if provided)
+    if (is.null(ref)) {
+      min_val <- min(grp_val, na.rm = TRUE)
+      max_val <- max(grp_val, na.rm = TRUE)
+    } else {
+      # Combine the group values with the reference if provided
+      ref_val <- ref[grp_ix]
+      min_val <- min(c(grp_val, ref_val), na.rm = TRUE)
+      max_val <- max(c(grp_val, ref_val), na.rm = TRUE)
+    }
+    
+    # Assign 1 for min or max values, otherwise 0
+    out[grp_ix] <- ifelse(grp_val == min_val | grp_val == max_val, 1, 0)
+  }
+  
+  return(out)
+}
+
+
+periodicity_by_group <- function(abs, grp) {
+  # This function calculates the periodicity for abs,
+  # Handles unsorted data by sorting within each group.
+  
+  uniq_grps <- unique(grp)  # Get unique groups
+  num_uniq_grp <- length(uniq_grps)  # Number of unique groups
+  num_rows <- length(abs)  # Number of rows in the 'abs' vector
+  out <- rep(0, num_rows)  # Create a vector of 0s the length of input vector
+  
+  for (i in 1:num_uniq_grp) {
+    grp_ix <- (grp == uniq_grps[i])  # Boolean vector for group membership
+    int_vect <- which(grp_ix)  # Indices of the group members
+    grp_val <- abs[grp_ix]  # Corresponding values for the group
+    
+    # Skip groups with only one sample
+    if (length(grp_val) < 2) {
+      next
+    }
+    
+    # Sort the group values (and preserve the original indices)
+    sorted_indices <- order(grp_val)  # Get sorted indices
+    sorted_grp_val <- grp_val[sorted_indices]  # Get sorted values
+    
+    # Loop over pairs of samples (now sorted within the group)
+    for (j in 1:(length(sorted_grp_val) - 1)) {  # We need to stop before the last pair
+      # Find the original indices of the sorted values
+      orig_index_1 <- int_vect[sorted_indices[j]]
+      orig_index_2 <- int_vect[sorted_indices[j + 1]]
+      
+      # Calculate the periodicity difference (difference between consecutive sorted values)
+      diff_val <- sorted_grp_val[j + 1] - sorted_grp_val[j]
+      out[orig_index_1] <- diff_val
+      out[orig_index_2] <- diff_val
+    }
+    
+    # Set the last entry of each group to NA (no periodicity value for the last entry)
+    last_index <- int_vect[sorted_indices[length(sorted_grp_val)]]
+    out[last_index] <- NA
+  }
+  
+  return(out)
+}
+
+
+date_diff_pair=function(abs, grp){
+  #this function will calculate the difference in date between two samples in a group
+  #and output that value for both samples. 
+  #Metadata should be trimmed down to the pairs of samples prior to using (ie
+  #use the paired map to trim down the dataset first). 
+  #Useful if you want to use the difference between two samples as a cov_var in a paired block
   uniq_grps=unique(grp);
   num_uniq_grp=length(uniq_grps);
   num_rows=length(abs);
@@ -482,16 +530,20 @@ periodicity_by_group=function(abs, grp){
     grp_ix=(grp==uniq_grps[i]); #creates a boolean vector indicating group status
     int_vect=which(grp_ix); #returns index number of group status from boolean
     grp_val=abs[grp_ix];
-    for(j in 1:length(int_vect)){
-      out[int_vect[j]]=grp_val[j+1]-grp_val[j]
+    for(j in 1:(length(int_vect)-1)){
+      out[int_vect[j]]=grp_val[j+1]-grp_val[j];
+      out[int_vect[j+1]]=grp_val[j+1]-grp_val[j];
     }
 
   }
 
   return(out);
+
 }
 
 
+
+### will retrieve CMM formatted date (YYYYMMDD) from a column of sampleIDs
 date_retriever=function(col, sep="[.]", len=8){
   num_rows=length(col);
   out=rep(0, num_rows);
@@ -499,7 +551,7 @@ date_retriever=function(col, sep="[.]", len=8){
     splits=strsplit(col[i], sep);
     for (j in 1:length(splits[[1]])){
       part=(as.numeric(splits[[1]][j]))
-      if (!is.na(part) & nchar(part)==len){
+      if (!is.na(part) & nchar(part)==len & part>19000000 & part<21500000){
         out[i]=part
       }
     }

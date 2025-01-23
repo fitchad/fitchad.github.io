@@ -37,7 +37,7 @@ if(!length(opt$input_file) || !length(opt$output_file)){
 }
 
 
-TaxaColumnName="tax"; 
+TaxaColumnName<-"tax"; 
 if(length(opt$column_name)){
 	TaxaColumnName=opt$taxa_column_name;
 }
@@ -110,7 +110,9 @@ inmat=make_key(inmat, TaxaColumnName);
 inmat=drop_columns(inmat, DropList);
 
 #Grabbing taxonomy into a vector
-new_col_names=inmat$TaxaColumnName;
+#new_col_names=inmat$TaxaColumnName;
+new_col_names=inmat$tax;
+
 
 #Dropping the taxa column now that it is saved in a vector
 inmat=drop_columns(inmat, TaxaColumnName);

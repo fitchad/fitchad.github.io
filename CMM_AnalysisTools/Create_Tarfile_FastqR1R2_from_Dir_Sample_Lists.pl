@@ -337,7 +337,7 @@ if ($write_file eq "Y"){
 
 
 	foreach my $samp_id(sort keys %sampid_to_path_hash){
-		$sampid_to_path_hash{$samp_id} =~ s/.//; #this removes the leading "/" from the name in the map as it is not present in the file.
+#		$sampid_to_path_hash{$samp_id} =~ s/.//; #this removes the leading "/" from the name in the map as it is not present in the file.
 		$tarfile->rename($sampid_to_path_hash{$samp_id}, $samp_id);
 	}
 

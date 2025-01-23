@@ -104,10 +104,10 @@ print(excl_to_fct);
 
 cat("\n\n");
 
-#num_shared=length(shared);
-#cat("\n", "Number of Shared Samples: ", num_shared, file=OutputFileRoot, sep="", append=TRUE)
-#cat("", shared, file=OutputFileRoot, sep="\n", append=TRUE)
-#cat("Number of Shared Samples:", num_shared, "\n");
-#print(shared)
+num_shared=length(shared);
+cat("\n", "Number of Shared Samples: ", num_shared, file=OutputFileRoot, sep="", append=TRUE)
+cat("", shared, file=OutputFileRoot, sep="\n", append=TRUE)
+cat("Number of Shared Samples:", num_shared, "\n");
+print(shared)
 cat("\n\n");
 
