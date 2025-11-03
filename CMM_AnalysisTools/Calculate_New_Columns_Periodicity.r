@@ -3,6 +3,7 @@
 ###############################################################################
 
 library('getopt');
+library('stringr');
 options(useFancyQuotes=F);
 options(width=120);
 
@@ -35,18 +36,83 @@ usage = paste(
 	"	good.ids=!is.na(subj_ids)\n",
 	"	keep good.ids\n",
 	"	make_key subj_ids\n",
+	"	rem_var_max_perc_na 5\n",
+	"	rem_var_no_information\n",
 	"\n",
-	"Additional columns will be added to the end\n",
-	"of the existing columns.  If the formula line is \"delete\"\n",
-	"Then the column will be deleted.\n",
+	"Additional columns will be added to the end of the existing columns.\n",
 	"\n",
-	"Rows/Samples can be conditionally kept/removed by using\n",
-	"the \"keep\" command.  First create/identify a variable/column that is T/F\n",
-	"then specify that variable as parameter for the keep command.  Rows that\n",
-	"are F will be excluded.\n",
+	"Variable manipulation commands include:\n",
+	"	delete <variable name>\n",
+	"		This command can use $ and * wildcards\n",
+	"	rename <orig name> <new name>\n",
+	"\n",
+	"Rows/Samples can be conditionally kept/removed:\n",
+	"	keep <boolean variable name>\n",
+	"		First create/identify a variable/column that is T/F\n",
+	"		then specify that variable as parameter for the keep command.  Rows that\n",
+	"		are F will be excluded.\n",
+	"	remove_NAs <variable with NAs>\n",
+	"		Similarly, you use this function to remove rows with NAs in the\n",
+	"		specified variable, without having to create a new variable with is.na()\n",
+	"\n",
+	"Prepend a string (like a group name) to the variables:\n",
+	"	prepend_names <prefix> <start> <end>\n",
+	"		For example:\n",
+	"		  prepend_names large. 3 10\n",
+	"		will apply large. to the variables from position 3 to 10.\n",
+	"		if the end is not a integer, then the prefix will be applied\n",
+	"		until the last variable.\n",
 	"\n",
 	"A column can be moved to the first column position perhaps making it a\n",
 	"primary key or sample id for the matrix with the \"make_key\" command.\n",
+	"\n",
+	"To apply a global variable screen use these remove functions:\n",
+	"	rem_var_max_perc_na <max perc na>\n",
+	"		This will remove any variables with greater than <max perc na>% NA.\n",
+	"		For example, rem_var_max_perc_na 5, will limit the percentage of NAs\n",
+	"		allowed in a variable to 5%.\n",
+	"\n",
+	"	rem_var_max_perc_modedom <max mode dominance>\n",
+	"		This will remove any variables where the most common values is greater\n",
+	"		than <max mode dominance>%.  For example, rem_var_max_perc_modedom 90\n",
+	"		will remove any variable if the most common value is >90% of that variable.\n",
+	"\n",
+	"	match_apply <A_extension> <B_extension> <function> <keepA> <keepB> <keepAB>\n",
+	"		Example:\n",
+	"			match_apply .t1 .t2 nomn_diff T T T\n",
+	"			match_apply .t1 .t2 perc_diff T T T\n",
+	"			match_apply .t1 .t2 log2_ratio T T F\n",
+	"\n",
+	"			match_apply .t1 .t2 nomn_diff_NA_0 T T T\n",
+	"			match_apply .t1 .t2 perc_diff_NA_0 T T T\n",
+	"			match_apply .t1 .t2 log2_ratio_NA_0 T T F\n",
+	"\n",
+	"		This will look for variables with the suffix A extension, \n",
+	"		then identify matching variables with suffix B extension, then\n",
+	"		apply the paired function, to create a new variable.\n",
+	"		The *_NA_0 functions will automatically set the difference to 0 if either or\n",
+	"		both A and B values are NA.\n",
+	"\n",
+	"		Example:\n",
+	"			<var><A_extension> and <var><B_extension> will create\n",
+	"			the variable <var>.<function>\n",
+	"\n",
+	"		Before the function completes, the keepA, keepB and keepAB will\n",
+	"		determine if the variables that were exclusive to A, B, and matching between\n",
+	"		the two will be kept or not.  If keepAB is set to false, then the variables\n",
+	"		will not exist if match_apply is called again.\n",
+	"		If pairs are not matchable, variables exclusive to A may be useful as covariates at\n",	
+	"		baseline.  If variables exclusive to B are kept, they may be useful as response\n",
+	"		or outcome variables.\n",
+	"\n",
+	"	batch_apply <filename> \"<function>\" <postfix> <keep>\n",
+	"		This will load the variable names in the specified file name and then apply\n",
+	"		the specified function to all the variables.\n",
+	"		Example:\n",
+	"			list_apply ./variable.lst \"1-%x%\" NA 1\n",
+	"		The %x% will be substituted with the variable name.\n",
+	"		<postfix> will be applied to original name, unless NA\n",
+	"		<keep> if 1, will save the original variable, else it will be deleted, if 0.\n",
 	"\n",
 	"In addition, the following non-standard R functions have been implemented:\n",
 	"\n",
@@ -60,9 +126,12 @@ usage = paste(
 	"	  example:\n",
 	"	     gpa=remap(grade, c(\"A\", \"B\", \"C\", \"D\", \"E\"), c(4, 3, 2, 1, 0))\n",
 	"\n",
-	"	redefine_NA(x, value):  This will remap all the NAs in x to the the specified value.\n",
+	"	redefine_NA(x, value, max_prop_na=1):  This will remap all the NAs in x to the the specified value.\n",
 	"	  example:\n",
 	"	     medication_usage_nona=redefine_NA(medication_usage, 0)\n",
+	"	If you specify a value of 'mean', 'median', or 'mode', then a calculated value will be used\n",
+	"	If you only want to redefine NAs when it is a small proportion of the variables, then set the\n",
+	"	max_prop_na to a value such as 0.1 or 0.05.\n",
 	"\n",
 	"	function.list(fun, list(x, y, ...), na.rm=T): This a generic function that will apply the 'fun' command\n",
 	"		across the rows for each of the columns specified in the list.\n",
@@ -74,6 +143,15 @@ usage = paste(
 	"\n",
 	"	  Example Usage:\n",
 	"	     max_long_weekend_smokes=function.list(max, list(saturday, sunday, monday)); \n",
+	"\n",
+	"\n",
+	"	normalize_across_choices(list(x, y, ...))\n",
+	"		This function will normalize the row across the variable names so they add\n",
+	"		up to 1.0, basically converting the values across x, y, ... into a probability\n",
+	"		density function.\n",
+	"		For example, if a sample has multiple choices where x=1, y=0, and z=1,\n",
+	"		then normalizing across the choices will generate: x=0.5, y=0, and z=0.5.\n", 
+	"		If all values are 0, then all values still be zero (no divide by zero errors)\n",
 	"\n",
 	"\n",
 	"	mask(x, bool_arr, mask_value): This will return the values in x masked with the values\n",
@@ -138,6 +216,13 @@ usage = paste(
 	"		same group.  The groups may be a subject ID and the values may be a time/date\n",
 	"		value.  You can think of these as ordered visits.\n",
 	"\n",
+	"	apply_function_by_group(values, grp, funct)\n",
+	"		This will apply the specified function, to the values within a group\n",
+	"		specified by the group ID.  All the cells in the group will then have\n",
+	"		the same value.\n",
+	"			 For example:\n",
+	"				any_rejection=apply_function_by_group(rejection, subject_id, any);\n",
+	"\n",
 	"	num_to_str_id(numeric_id, prefix=\"s\")\n",
 	"		This will convert the numeric id into a string.  By default, a prefix is prepended\n",
 	"		to the number to make it a string.\n",
@@ -152,6 +237,69 @@ usage = paste(
 	"			min_div02:  find min, then divide by 2\n",
 	"			expected:  Assume X is normal, set LOQ to Exp[X: X<LOQ]\n",
 	"\n",
+	"	standardize(x)\n",
+	"		This function will standardize (0-center and divide by sd) x.\n",
+	"		If you have a two level variable, and you want to convert it\n",
+	"		into a boolean, do this:\n",
+	"			bool_x=ifelse(standardize(x)>0, 1, 0);\n",
+	"\n",
+	"	 hinge(x, knot, type)\n",
+	"		This function is used to apply a hinge function for MARS-like splines.\n",
+	"		The knot is the point where the inflection begins.\n",
+	"		The two types of hinges are: 'low_flat_call' and 'high_flat_put'\n",
+	"		The low_flat_call starts flat and then increases after the knot.\n",
+	"		The high_flat_put starts high, then decrease until the knot, and goes flat.\n",
+	"\n",
+	"	make_dummies(x, prefix=\"is\", reference=NA)\n",
+	"		This function will create dummy variables for a variable that is categorical.\n",
+	"		If the reference is not specified, then the most common category will be used\n",
+	"		as the reference.  The number of new variables that will be created is\n",
+	"		the (number of categories - 1).  When the function is called, the LHS variable\n",
+	"		name will be appended to the category name after the prefix has been attached.\n",
+	"		For example:  If there are two categories, male and female, and there are more\n",
+	"		males than females, then the follow command: sex=make_dummies(gender), will produce\n",
+	"		the new variable sex.ismale.\n",
+	"\n",
+	"	multi_col_regr(xargs, yargs, verbose=F)\n",
+	"		This function will calculate the intercept, slope, and R^2 across\n",
+	"		the specified columns.  This will allow the slope to be compiled\n",
+	"		across the subjects if multiple columns represent multiple time points.\n",
+	"		The y values should be specified completely per sample/subject, but\n",
+	"		the x values may be simplified if they are constant.\n",
+	"		Multiple values (columns) will be returned when called.\n",
+	"\n",
+	"		For example:\n",
+	"			pain=multi_col_regr(\n",
+	"				xargs=list(0, 6, 9),\n",
+	"				yargs=list(pain_baseline, pain_6m, pain_9m))\n",
+	"\n",
+	"			or\n",
+	"\n",
+	"			pain=multi_col_regr(\n",
+	"				xargs=list(0, v2_days, v3_days, 90),\n",
+	"				yargs=list(pain_v1, pain_v2, pain_v3, pain_v4))\n",
+	"\n",
+	"		When the function succeeds, the following columns will be added\n",
+	"		based on the LHS variable name as the prefix.\n",
+	"				pain.intercept\n",
+	"				pain.slope\n",
+	"				pain.r2\n",
+	"\n",
+	"\n",
+	"	Note: there are some nifty built in functions in R that you should know about\n",
+	"	and should work in the formulas file:\n",
+	"\n",
+	"		make.unique(x)\n",
+	"			This function will take a list of strings and make them unique,\n",
+	"			if they aren't already, by appending an indexed extention to the end\n",
+	"			e.g. [a, b, b, c, d, d] becomes [a, b, b.1, c, d.1, d.2]\n",
+	"\n",
+	"		make.names(x)\n",
+	"			This function will take a list of strings that are not R\n",
+	"			variable-friendly names, and prepend or convert characters\n",
+	"			to periods to make them variable name safe.  Note that the\n",
+	"			conversion doesn't keep the variables unique across a list,\n",
+	"			so you may need to apply the make.unique function afterwards.\n",
 	"\n",
 	"For debugging you can also do:\n",
 	"	print <variable name>\n",
@@ -174,9 +322,9 @@ cat("Output Filename: ", OutputFName, "\n");
 ##############################################################################
 
 load_factors=function(fname){
-	factors=data.frame(read.table(fname,  header=TRUE, check.names=FALSE, as.is=T, comment.char="", quote="", sep="\t"));
-
-	#print(factors);
+	factors=(read.delim(fname,  header=TRUE, check.names=FALSE, 
+		row.names=NULL,
+		as.is=T, comment.char="", quote="", sep="\t"));
 
 	dimen=dim(factors);
 	cat("Rows Loaded: ", dimen[1], "\n");
@@ -274,8 +422,35 @@ remap=function(x, key, value, leave_unmapped_alone=T){
 	return(new);
 }
 
-redefine_NA=function(x, value){
+redefine_NA=function(x, value, max_prop_NA_limit=1.0){
+
 	na_ix=is.na(x);
+	num_xs=length(x);
+
+	prop_na=sum(na_ix)/num_xs;
+	if(max_prop_NA_limit>1 || max_prop_NA_limit<0){
+		cat("Error, max prop NA limit should be between 0 and 1.\n");
+		quit(status=-1);
+	}
+
+	if(prop_na>max_prop_NA_limit){
+		cat("\tWarning:  Proportion of NAs (", prop_na, 
+			") in variable exceeded max threshold (", max_prop_NA_limit, ")\n");
+		cat("\tSkipping redefinition.\n");
+		return(x);
+	}else{
+		cat("\tProportion NA: ", prop_na, "\n");
+	}
+	
+
+	if(value=="mean"){
+		value=mean(x, na.rm=T);
+	}else if (value=="mode"){
+		value=mode(x, na.rm=T);
+	}else if (value=="median"){
+		value=median(x, na.rm=T);
+	}
+
 	x[na_ix]=value;
 	return(x);	
 }
@@ -284,6 +459,28 @@ function.list=function(fun, arglist, na.rm=T){
 	m=matrix(unlist(arglist), byrow=F, ncol=length(arglist));
 	out=apply(m, 1, function(x){fun(x, na.rm=na.rm)});	
 	return(out);
+}
+
+normalize_across_choices=function(arglist){
+
+	# Get variable names passed in
+	args=substitute(arglist);
+	arg_str=as.character(args);
+	varnames=arg_str[2:length(arg_str)];
+
+	cat("Variable Names:\n");
+	print(varnames);
+
+	# Build matrix
+	m=matrix(unlist(arglist), byrow=F, ncol=length(arglist));
+	colnames(m)=varnames;
+
+	# Normalize
+	sums=apply(m, 1, sum);
+	norm=(m/sums);
+	norm[is.nan(norm)]=0;
+
+	return(norm);
 }
 
 offsets_by_group=function(abs, ref, grp){
@@ -314,6 +511,23 @@ indices_by_group=function(abs, grp){
 		grp_ix=which(grp==uniq_grps[i]);
 		grp_val=abs[grp_ix];
 		out[grp_ix]=rank(grp_val);
+	}
+	return(out);
+}
+
+apply_function_by_group=function(values, grp, funct){
+	# This function will apply the function to all the values
+	# within a group, funct would be a function like: any,
+	# sum, max, min, etc.
+	uniq_grps=unique(grp);
+	num_uniq_grp=length(uniq_grps);
+	num_rows=length(values);
+
+	out=rep(0, num_rows);
+	for(i in 1:num_uniq_grp){
+		grp_ix=which(grp==uniq_grps[i]);
+		grp_val=values[grp_ix];
+		out[grp_ix]=funct(grp_val);
 	}
 	return(out);
 }
@@ -360,84 +574,46 @@ mean_center=function(x){
 	return(x-meanx);
 }
 
-#------------------------------------------------------------------------------
 
-str.left=function(x, n){
-	x=as.character(x);
-	substr(x, 1, n);	
-}
-
-str.right=function(x, n){
-	x=as.character(x);
-	last=nchar(x);
-	substr(x, last-n+1, last);	
-}
-
-str.chop_left=function(x, n){
-	x=as.character(x);
-	last=nchar(x);
-	substr(x, n+1, last);	
-}
-
-str.chop_right=function(x, n){
-	x=as.character(x);
-	last=nchar(x);
-	substr(x, 1, last-n);	
-}
+###Added by ACF, updated 11/3/25
 
 
-str.split_keep=function(x, sep="\\.", keep_idx, join="."){
-	arr_len=length(x);
-	out_arr=character(arr_len);
-	for(i in 1:arr_len){
-		splits=strsplit(x[i], sep)[[1]];
-		out_arr[i]=paste(splits[keep_idx], collapse=join);
-	}
-	return(out_arr);
-}
-
-
-##Added by ACF
-
-
-#This function adjusts splitting for 0159 MEDBIO sequencingIDs which 
+This function adjusts splitting for 0159 MEDBIO sequencingIDs which 
 #contain an extra field after the studyID. 
 str.split_keep_MDBIO=function(x, sep="\\.", keep_idx, join="."){
         arr_len=length(x);
         out_arr=character(arr_len);
-	keep_idx_MB=keep_idx+1
-	for(i in 1:arr_len){
+        keep_idx_MB=keep_idx+1
+        for(i in 1:arr_len){
                 splits=strsplit(x[i], sep)[[1]];
-		if (identical(splits[1],"0159")){
-			out_arr[i]=paste(splits[keep_idx_MB], collapse=join);
-		}else{
-			out_arr[i]=paste(splits[keep_idx], collapse=join);
-		}
-	}
-	return(out_arr);
+                if (identical(splits[1],"0159")){
+                        out_arr[i]=paste(splits[keep_idx_MB], collapse=join);
+                }else{
+                        out_arr[i]=paste(splits[keep_idx], collapse=join);
+                }
+        }
+        return(out_arr);
 }
 
 #Used to reformat date conventions parsed from sequencingIDs. Standard format 
 #in the sequencingIDs is YYYYDDMM, this script will parse a column of dates in that format and 
 #return as DD/MM/YYYY. 
 date.reformat_CMM=function(x, split=character(0), join="/"){
-	arr_len=length(x);
-	out_arr=character(arr_len);
-	for(i in 1:arr_len){
-		splits=strsplit(as.character(x[i]), split)[[1]];
-		if (length(splits)==8){
-			Y=paste(splits[1],splits[2],splits[3],splits[4],sep="")
-			D=paste(splits[5],splits[6],sep="")
-			M=paste(splits[7],splits[8],sep="")
-			out_arr[i]=paste(D,M,Y,sep=join)
-		}else{
-			out_arr[i]=x[i]
-		}
-	}
-	return(out_arr);
+        arr_len=length(x);
+        out_arr=character(arr_len);
+        for(i in 1:arr_len){
+                splits=strsplit(as.character(x[i]), split)[[1]];
+                if (length(splits)==8){
+                        Y=paste(splits[1],splits[2],splits[3],splits[4],sep="")
+                        D=paste(splits[5],splits[6],sep="")
+                        M=paste(splits[7],splits[8],sep="")
+                        out_arr[i]=paste(D,M,Y,sep=join)
+                }else{
+                        out_arr[i]=x[i]
+                }
+        }
+        return(out_arr);
 }
-
-
 
 #Used to mark the min and max offsets for a given group (ie the first and last sample)
 #creates a boolean vector
@@ -447,12 +623,12 @@ return_min_max_of_offset <- function(grp, abs, ref = NULL) {
   num_uniq_grp <- length(uniq_grps)  # Number of unique groups
   num_rows <- length(abs)  # Number of rows in 'abs'
   out <- rep(0, num_rows)  # Initialize the output vector
-  
+
   # Loop through each unique group
   for (i in 1:num_uniq_grp) {
     grp_ix <- (grp == uniq_grps[i])  # Boolean vector for group membership
     grp_val <- abs[grp_ix]  # Values corresponding to the current group
-    
+
     # Compute min/max for the group (and reference if provided)
     if (is.null(ref)) {
       min_val <- min(grp_val, na.rm = TRUE)
@@ -463,55 +639,92 @@ return_min_max_of_offset <- function(grp, abs, ref = NULL) {
       min_val <- min(c(grp_val, ref_val), na.rm = TRUE)
       max_val <- max(c(grp_val, ref_val), na.rm = TRUE)
     }
-    
+
     # Assign 1 for min or max values, otherwise 0
     out[grp_ix] <- ifelse(grp_val == min_val | grp_val == max_val, 1, 0)
   }
-  
+
   return(out)
 }
+
+
+
+
+###Function will calculate the value of the operation for column abs for all members of grp, outputting the same
+###value for all group members to a new column.
+###Possible operations - min, max, sum, median, sd, var, length
+
+return_stat_by_group <- function(grp, abs, operation) {
+  uniq_grps <- unique(grp)  # Get unique group names
+  num_uniq_grp <- length(uniq_grps)  # Number of unique groups
+  num_rows <- length(abs)  # Number of rows in 'abs'
+  out <- rep(0, num_rows)  # Initialize the output vector
+
+  # Loop through each unique group
+  for (i in 1:num_uniq_grp) {
+    grp_ix <- (grp == uniq_grps[i])  # Boolean vector for group membership
+    grp_val <- abs[grp_ix]  # Values corresponding to the current group
+
+
+    if (identical(operation, length)) {
+      stat_val <- length(grp_val)      # Don't filter out NA or non-numeric
+    } else {
+
+    # Filter out non-numeric values and NA values
+    grp_val <- grp_val[!is.na(grp_val) & is.numeric(grp_val)]
+    # Compute value for the group, skipping NAs and non-numeric values
+    stat_val <- operation(grp_val, na.rm = TRUE)
+    }
+
+    # Assign the sum value to all indices in the group
+    out[grp_ix] <- stat_val
+  }
+
+  return(out)
+}
+
 
 
 periodicity_by_group <- function(abs, grp) {
   # This function calculates the periodicity for abs,
   # Handles unsorted data by sorting within each group.
-  
+
   uniq_grps <- unique(grp)  # Get unique groups
   num_uniq_grp <- length(uniq_grps)  # Number of unique groups
   num_rows <- length(abs)  # Number of rows in the 'abs' vector
   out <- rep(0, num_rows)  # Create a vector of 0s the length of input vector
-  
+
   for (i in 1:num_uniq_grp) {
     grp_ix <- (grp == uniq_grps[i])  # Boolean vector for group membership
     int_vect <- which(grp_ix)  # Indices of the group members
     grp_val <- abs[grp_ix]  # Corresponding values for the group
-    
+
     # Skip groups with only one sample
     if (length(grp_val) < 2) {
       next
     }
-    
+
     # Sort the group values (and preserve the original indices)
     sorted_indices <- order(grp_val)  # Get sorted indices
     sorted_grp_val <- grp_val[sorted_indices]  # Get sorted values
-    
+
     # Loop over pairs of samples (now sorted within the group)
     for (j in 1:(length(sorted_grp_val) - 1)) {  # We need to stop before the last pair
       # Find the original indices of the sorted values
       orig_index_1 <- int_vect[sorted_indices[j]]
       orig_index_2 <- int_vect[sorted_indices[j + 1]]
-      
+
       # Calculate the periodicity difference (difference between consecutive sorted values)
       diff_val <- sorted_grp_val[j + 1] - sorted_grp_val[j]
       out[orig_index_1] <- diff_val
       out[orig_index_2] <- diff_val
     }
-    
+
     # Set the last entry of each group to NA (no periodicity value for the last entry)
     last_index <- int_vect[sorted_indices[length(sorted_grp_val)]]
     out[last_index] <- NA
   }
-  
+
   return(out)
 }
 
@@ -561,6 +774,92 @@ date_retriever=function(col, sep="[.]", len=8){
 
 
 
+###Function to standardized dates
+
+standardize_dates <- function(date_column) {
+        parse_date <- function(x){
+        if (is.na(x)) {
+                return(NA)
+        }
+        # If numeric, determine if Excel-style or already R-style
+        if (is.numeric(x)) {
+                if (x > 10000 && x < 60000) {
+                # Likely Excel serial date (1900-based)
+                        return(as.Date(x, origin = "1899-12-30"))
+                }else{
+                # Likely already R-style
+                        return(as.Date(x, origin = "1970-01-01"))
+                }
+        }
+
+        # If it is a character string, try multiple date formats
+        if (is.character(x)) {
+        # Try ISO format
+                if (!is.na(d <- suppressWarnings(as.Date(x, format = "%Y-%m-%d")))) return(d)
+        # Try US format
+                if (!is.na(d <- suppressWarnings(as.Date(x, format = "%m/%d/%Y")))) return(d)
+        # Try European format
+                if (!is.na(d <- suppressWarnings(as.Date(x, format = "%d/%m/%Y")))) return(d)
+
+        #If it is a digit string but identified as a character string
+                if (grepl("^\\d+$", x)) {
+                        x_num <- as.numeric(x)
+                        if (x_num > 10000 && x_num < 60000) {
+                                return(as.numeric(as.Date(x_num, origin = "1899-12-30")))  # Excel
+                        } else {
+                                return(as.numeric(as.Date(x_num, origin = "1970-01-01")))  # Already R-style
+                        }
+                }
+
+        }
+        # If all attempts fail return the class of data for debugging
+        #        return(NA)
+                return(paste0("Unrecognized: ", class(x)))
+
+        }
+        # Normalize input and apply parser
+        result <- sapply(date_column, parse_date, USE.NAMES = FALSE)
+        return(result)
+}
+
+
+
+
+#------------------------------------------------------------------------------
+
+str.left=function(x, n){
+	x=as.character(x);
+	substr(x, 1, n);	
+}
+
+str.right=function(x, n){
+	x=as.character(x);
+	last=nchar(x);
+	substr(x, last-n+1, last);	
+}
+
+str.chop_left=function(x, n){
+	x=as.character(x);
+	last=nchar(x);
+	substr(x, n+1, last);	
+}
+
+str.chop_right=function(x, n){
+	x=as.character(x);
+	last=nchar(x);
+	substr(x, 1, last-n);	
+}
+
+str.split_keep=function(x, sep="\\.", keep_idx, join="."){
+	arr_len=length(x);
+	out_arr=character(arr_len);
+	for(i in 1:arr_len){
+		splits=strsplit(x[i], sep)[[1]];
+		out_arr[i]=paste(splits[keep_idx], collapse=join);
+	}
+	return(out_arr);
+}
+
 #------------------------------------------------------------------------------
 
 index=function(start=1){
@@ -580,7 +879,6 @@ days_from_date=function(x, format){
 }
 
 num_to_str_id=function(numeric_id, prefix="s"){
-print(names(numeric_id));
 	max_val=max(numeric_id);
 	num_digits=log10(max_val+1)+1;
 	print(numeric_id);
@@ -676,6 +974,462 @@ set_LOQ=function(x, detection_limit_value, method){
 
 }
 
+#------------------------------------------------------------------------------
+
+multi_col_regr=function(xargs, yargs, verbose=F){
+	# outvar=multi_col_regr(xargs=list(0,6,10), yargs=list(var1, var2, var3));
+	# Will add the variables:
+	#	outvar.intercept
+	#	outvar.slope
+	#	outvar.r2
+
+	if(verbose){
+		xnames=substitute(xargs);
+		ynames=substitute(yargs);
+		cat("X 'names' passed in:\n");
+		print(xnames);
+		cat("Y 'names' passed in:\n");
+		print(ynames);
+		cat("\n");
+	}
+
+	xarg_len=length(xargs);
+	yarg_len=length(yargs);
+
+	num_samples=length(yargs[[1]]);
+
+	if(xarg_len!=yarg_len){
+		cat("Error: Length of x and y values are not matching.\n");
+		cat("Num x arguments: ", xarg_len, "\n");
+		cat("Num y arguments: ", yarg_len, "\n");
+		quit(status=-1);
+	}
+	num_timepts=xarg_len;
+
+	if(verbose){
+		cat("x values:\n");
+		print(xargs);
+		cat("y values:\n");
+		print(yargs);
+	}
+
+	# Build matrix out of y values arguments
+	y_mat=matrix(0, nrow=num_samples, ncol=num_timepts);
+	for(tpix in 1:num_timepts){
+		y_mat[,tpix]=yargs[[tpix]];
+	}
+
+	# Build matrix out of x values, pad/repeat if only single value specified.
+	x_mat=matrix(0, nrow=num_samples, ncol=num_timepts);
+	for(tpix in 1:num_timepts){
+		x=xargs[[tpix]];
+		x_len=length(x);
+		if(x_len==1){
+			cat("Length of x[", tpix, 
+				"] = 1, assuming same value (", x, ") for all samples.\n", sep="");
+		}else if(x_len!=num_samples){
+			cat("Error: Length of x[", tpix, 
+				"] doesn't match number of samples exactly.\n", sep="");
+			quit(status=-1);
+		}
+		x_mat[,tpix]=xargs[[tpix]];
+	}
+
+	# Initialize output matrix
+	mat_hdr=c("intercept", "slope", "r2");
+	header_len=length(mat_hdr);
+	intc_slp_mat=matrix(0, nrow=num_samples, ncol=header_len);
+	colnames(intc_slp_mat)=mat_hdr;
+
+	# Run regresion through all samples
+	for(smp_ix in 1:num_samples){
+
+		t=x_mat[smp_ix,];
+		y=y_mat[smp_ix,];
+
+		# Remove NAs
+		t_nonas=!is.na(t);
+		y_nonas=!is.na(y);
+		comb_nonas=t_nonas & y_nonas;
+		num_nonas=sum(comb_nonas);
+
+		if(num_nonas<=1){
+			# If not enough time points, return NAs
+			intc_slp_mat[smp_ix,]=rep(NA, header_len);
+		}else{
+			t=t[comb_nonas];
+			y=y[comb_nonas];
+
+			fit=lm(y~t);		# Need coefficients
+			sumfit=summary(fit);	# Need the R^2
+
+			if(verbose){
+				cat("Sample Index: ", smp_ix, "\n");
+				cat("t:\n");
+				print(t);
+				cat("y:\n");
+				print(y);
+				cat("ln fit:\n");
+				print(fit);
+				cat("---------------------------------------------\n");
+			}
+
+			intc_slp_mat[smp_ix,]=c(
+				fit$coefficients["(Intercept)"],
+				fit$coefficients["t"],
+				sumfit$r.squared
+				);
+		}
+	}
+
+	return(intc_slp_mat);
+}
+
+##############################################################################
+
+find_variables_woNAs=function(factors, max_na_perc_thres){
+	num_factors=ncol(factors);
+	num_samples=nrow(factors);
+	max_prop_na=max_na_perc_thres/100.0;
+	var_names=colnames(factors);
+
+	keep_ix=c();
+	cat("Proportion NA screen:\n");
+	for(i in 1:num_factors){
+		num_nas=sum(is.na(factors[,i]));
+		prop_na=num_nas/num_samples;
+
+		if(prop_na < max_prop_na){
+			msg="Keep";
+			keep_ix=c(keep_ix, i);	
+		}else{
+			msg="Remove";
+			keep=F;
+		};
+
+		cat("\t", var_names[i], ": ", prop_na, ", (", msg, ")\n", sep="");
+	}
+
+	num_kept=length(keep_ix);
+	num_removed=num_factors-num_kept;
+
+	cat("\n");
+	cat("Num Kept: ", num_kept, "\n", sep="");
+	cat("Num Removed: ", num_removed, "\n", sep="");
+
+	return(keep_ix);
+}
+
+find_variables_wModeDominance=function(factors, perc_max_dominant_thres){
+	num_factors=ncol(factors);
+	var_names=colnames(factors);
+
+	keep_ix=c();
+	cat("Mode Dominance screen:\n");
+	for(i in 1:num_factors){
+
+		data=factors[,i];
+		nona_ix=!is.na(data);
+		nona_data=data[nona_ix];
+
+		dtab=table(nona_data);
+		dtab_sorted=sort(dtab, decreasing=T);
+		num_values=sum(dtab_sorted);
+
+		mode_perc=dtab_sorted[1]/num_values*100;
+		if(mode_perc < perc_max_dominant_thres){
+			msg="Keep";
+			keep_ix=c(keep_ix, i);	
+		}else{
+			msg="Remove";
+			keep=F;
+		};
+
+		cat("\t", var_names[i], ": ", mode_perc, " [", dtab_sorted[1], "/", num_values, 
+			"] (", msg, ")\n", sep="");
+	}
+
+	num_kept=length(keep_ix);
+	num_removed=num_factors-num_kept;
+
+	cat("\n");
+	cat("Num Kept: ", num_kept, "\n", sep="");
+	cat("Num Removed: ", num_removed, "\n", sep="");
+
+	return(keep_ix);
+}
+
+##############################################################################
+
+perc_diff=function(A, B){
+	return((B-A)/A);
+}
+
+nomn_diff=function(A, B){
+	return(B-A);
+}
+
+log2_ratio=function(A, B){
+	return(log2(B/A));
+}
+
+perc_diff_NA_0=function(A, B){
+	diff=perc_diff(A, B);
+	diff[is.na(diff)]=0;
+	return(diff);
+}
+
+nomn_diff_NA_0=function(A, B){
+	diff=nomn_diff(A,B);
+	diff[is.na(diff)]=0;
+	return(diff);
+}
+
+log2_ratio_NA_0=function(A, B){
+	diff=log2_ratio(A, B);
+	diff[is.na(diff)]=0;
+	return(diff);
+}
+
+match_apply=function(factors, extA, extB, funct, keepA=T, keepB=T, keepAB=T){
+
+	cat("Match/Apply called.\n");
+
+	var_names=colnames(factors);
+	num_vars=length(var_names);
+	cat("Extension A: '", extA, "'\n", sep="");
+	cat("Extension B: '", extB, "'\n", sep="");
+	cat("Function: '", funct, "'\n", sep="");
+
+	# Create regular expression
+	extA_regex=paste(extA, "$", sep="");
+	extB_regex=paste(extB, "$", sep="");
+
+	# Find variables
+	A_vars_ix=grep(extA_regex, var_names);
+	B_vars_ix=grep(extB_regex, var_names);
+
+	A_vars=character(num_vars);
+	B_vars=character(num_vars);
+	A_vars_roots=character(num_vars);
+	B_vars_roots=character(num_vars);
+
+	# Extract A and B full names
+	A_vars[A_vars_ix]=var_names[A_vars_ix];
+	B_vars[B_vars_ix]=var_names[B_vars_ix];
+
+	# Find roots
+	A_vars_roots[A_vars_ix]=gsub(extA_regex, "", var_names[A_vars_ix]);
+	B_vars_roots[B_vars_ix]=gsub(extB_regex, "", var_names[B_vars_ix]);
+
+	# Find intersection
+	shared_vars=setdiff(intersect(A_vars_roots, B_vars_roots), "");
+	cat("\nShared between A and B:\n");
+	print(shared_vars);
+	A_vars_roots_only=setdiff(A_vars_roots, c("", shared_vars));
+	B_vars_roots_only=setdiff(B_vars_roots, c("", shared_vars));
+
+	cat("\nExclusive to A:\n");
+	print(A_vars_roots_only);
+	cat("\nExclusive to B:\n");
+	print(B_vars_roots_only);
+	cat("\n");
+
+	num_shared=length(shared_vars);
+	if(num_shared==0){
+		cat("No variables found with matching roots.\n");
+		return(factors);
+	}
+
+	# Create accumulation matrix to later append
+	res_mat=matrix(NA, nrow=nrow(factors), ncol=num_shared);
+	newvarnames=paste(shared_vars, ".", funct, sep="");
+	colnames(res_mat)=newvarnames;
+	
+	for(i in 1:num_shared){
+		shrdvar=shared_vars[i];
+		cat("Working on: ", shrdvar, "\n");
+
+		A_ix=which(A_vars_roots==shrdvar);
+		B_ix=which(B_vars_roots==shrdvar);
+
+		A_vals=factors[,A_ix,drop=F];
+		B_vals=factors[,B_ix,drop=F];
+
+		#print(colnames(A_vals));
+		#print(colnames(B_vals));
+
+		if(funct=="perc_diff"){
+			res=perc_diff(A_vals, B_vals);
+		}else if(funct=="nomn_diff"){
+			res=nomn_diff(A_vals, B_vals);
+		}else if(funct=="log2_ratio"){
+			res=log2_ratio(A_vals, B_vals);
+		}else if(funct=="perc_diff_NA_0"){
+			res=perc_diff_NA_0(A_vals, B_vals);
+		}else if(funct=="nomn_diff_NA_0"){
+			res=nomn_diff_NA_0(A_vals, B_vals);
+		}else if(funct=="log2_ratio_NA_0"){
+			res=log2_ratio_NA_0(A_vals, B_vals);
+		}else{
+			cat("Unknown function: ", funct, "\n");
+			quit(status=-1);
+		}
+
+		#print(res);
+
+		res_mat[,newvarnames[i]]=res[,1];
+	}
+
+	#####################################################
+
+	cur_colnames=colnames(factors);
+	if(!keepA){
+		cat("Removing Exclusive to A:", extA, "\n");
+		exclA=paste(A_vars_roots_only, extA, sep="");
+		cur_colnames=setdiff(cur_colnames, exclA);	
+	}
+	if(!keepB){
+		cat("Removing Exclusive to B:", extB, "\n");
+		exclB=paste(B_vars_roots_only, extB, sep="");
+		cur_colnames=setdiff(cur_colnames, exclB);	
+	}
+	if(!keepAB){
+		cat("Removing shared by A and B:\n");
+		sharedAB_asA=paste(shared_vars, extA, sep="");
+		sharedAB_asB=paste(shared_vars, extB, sep="");
+
+		cur_colnames=setdiff(cur_colnames, c(sharedAB_asA, sharedAB_asB));	
+	}
+	factors=factors[,cur_colnames,drop=F];
+
+	#####################################################
+	
+	out_factors=cbind(factors, res_mat);
+
+	return(out_factors);
+
+}
+
+batch_apply=function(factors, list_fname, funct_str, ext, keep){
+	
+	cat("Batch Apply:\n");
+	cat("  Variable Filename: ", list_fname, "\n", sep="");
+	cat("  Function: ", funct_str, "\n", sep="");
+	cat("  New variable name extension: ", ext, "\n", sep="");
+	cat("  Keep original variable?: ", keep, "\n", sep="");
+
+	# load list
+	target_vars=read.delim(list_fname, header=F, comment.char="#",
+		as.is=T);
+	target_vars=target_vars[,];
+	num_targets=length(target_vars);
+	cat("\nTarget Variables (", num_targets, "):\n", sep="");
+	print(target_vars);
+
+	# Find available targets and report missing
+	avail_variables=colnames(factors);
+	valid_target_vars=intersect(target_vars, avail_variables);
+	num_valid_targets=length(valid_target_vars);
+	missing_target_vars=setdiff(target_vars, valid_target_vars);
+	num_missing_targets=length(missing_target_vars);
+	cat("\nValid Targets (", num_valid_targets, "): \n", sep="");
+	print(valid_target_vars);
+	cat("\nMissing Targets (", num_missing_targets, "): \n", sep="");
+	print(missing_target_vars);
+	cat("\n");
+
+	# Allocate output matrix
+	num_samples=nrow(factors);
+	accum_mat=matrix(NA, nrow=num_samples, ncol=num_valid_targets);
+	colnames(accum_mat)=valid_target_vars;
+
+	for(tar_var in valid_target_vars){
+		cmd=gsub("%x%", tar_var, funct_str);
+		cat("Command: ", cmd, "\n");
+		results=eval(parse(text=cmd), envir=factors);
+		accum_mat[,tar_var]=results;
+	}
+		
+	# Apply post-fix, if requested
+	if(ext!="NA"){
+		colnames(accum_mat)=paste(colnames(accum_mat), ext, sep="");
+	}
+
+	# Remove original variables, if requested
+	if(!keep){
+		cnames=colnames(factors);
+		kept_cnames=setdiff(cnames, valid_target_vars);
+		factors=factors[,kept_cnames,drop=F];
+	}
+
+	factors=cbind(factors, accum_mat);
+	return(factors);
+}
+
+##############################################################################
+
+standardize=function(x){
+	return((x-mean(x))/sd(x));
+}
+
+##############################################################################
+
+hinge=function(x, knot, type){
+
+	num_val=length(x);
+	if(type=="low_flat_call"){
+		# Low values are flat, High values follow x, __/
+		hinged=ifelse(x<knot, 0, x-knot);
+	}else if(type=="high_flat_put"){
+		# High values are flat, Low values follow -x, \__
+		hinged=ifelse(x>knot, 0, knot-x);
+	}else{
+		cat("Error, unknown hinge type, only:\n");
+		cat("'low_flat_call' and 'high_flat_put' allowed.\n");
+	}
+	return(hinged);
+
+}
+
+##############################################################################
+
+make_dummies=function(x, prefix="is", reference=NA){
+	# This function will convert a variable with categorical variables
+	# into multiple dummy variables, relative to the specified reference.
+	# If the reference is not specified, the most common category will
+	# be used as the reference.
+
+	# Count up categories, so we can build dummy variables in decreasing
+	# order of frequency
+	tab=sort(table(x), decreasing=T);
+	print(tab);
+
+	if(is.na(reference)){
+		reference=names(tab)[1];
+	}
+
+	cat("Using as reference category: ", reference, "\n");
+
+	categories=names(tab);
+	dummy_vars=setdiff(categories, reference);
+
+	cat("Targeted Dummy variables to make:\n");
+	print(dummy_vars);
+	num_dummy_vars=length(dummy_vars);
+	num_values=length(x);
+
+	dum_mat=matrix(NA, ncol=num_dummy_vars, nrow=num_values);
+	colnames(dum_mat)=paste(prefix, dummy_vars, sep="");
+
+	for(i in 1:num_dummy_vars){
+		dum_mat[,i]=ifelse(dummy_vars[i]==x, 1, 0);
+	}
+
+	return(dum_mat);
+
+}
+
 ##############################################################################
 
 # Load factors
@@ -700,8 +1454,10 @@ for(cmd in commands){
 	cmd=gsub("^\\s+", "", cmd);
 	cmd=gsub("\\s+$", "", cmd);
 
-	print(cmd);
+	num_factors=ncol(factors);
+	cat("Number of Factors in matrix: ", num_factors, "\n");
 
+	print(cmd);
 	cat("Working on: ", cmd, "\n");
 
 	if(length(grep("^delete ", cmd))==1){
@@ -709,8 +1465,36 @@ for(cmd in commands){
 		var=strsplit(cmd, "\\s+")[[1]][2];
 		cat("Deleting: ", var, "\n"); 
 		cnames=colnames(factors);
-		cnames=setdiff(cnames, var);
+
+		regex=gsub("\\$", ".", var);
+		regex=gsub("\\*", ".*", regex);
+		regex=paste("^", regex, "$", sep="");
+
+		cat("Effective Regex:", regex, "\n", sep="");
+		matches=grep(regex, cnames);
+		cat("Matches:\n");
+		print(cnames[matches]);
+
+		cnames=setdiff(cnames, cnames[matches]);
 		factors=factors[,cnames, drop=F];
+
+	}else if(length(grep("^rename ", cmd))==1){
+		# rename variables 
+		origname=strsplit(cmd, "\\s+")[[1]][2];
+		newname=strsplit(cmd, "\\s+")[[1]][3];
+		cat("Renaming: ", origname, " to ", newname, "\n"); 
+		cnames=colnames(factors);
+		varix=which(cnames==origname);
+		if(length(varix)==0){
+			cat("Could not find: ", origname, "\n", sep="");
+			cat("Available Variable Names:\n");
+			print(cnames);
+			cat("\n");
+			quit(-1);
+		}
+		cnames[varix]=newname;
+		colnames(factors)=cnames;
+
 	}else if(length(grep("^keep ", cmd))==1){
 		# Remove rows with factors that are F
 		var=strsplit(cmd, "\\s+")[[1]][2];
@@ -719,6 +1503,76 @@ for(cmd in commands){
 		factors=factors[keep_ix,, drop=F];
 		rowcol=dim(factors);
 		cat("Rows: ", rowcol[1], " x Cols: ", rowcol[2], "\n", sep="");
+
+	}else if(length(grep("^remove_NAs ", cmd))==1){
+		# Remove rows with factors that are F
+		var=strsplit(cmd, "\\s+")[[1]][2];
+                cat("Removing Rows where ", var, " is NA\n", sep="");
+		keep_ix=!is.na(factors[,var]);
+		before_rowcol=dim(factors);
+		factors=factors[keep_ix,, drop=F];
+		rowcol=dim(factors);
+		cat("Before Rows: ", before_rowcol[1], " x Cols: ", before_rowcol[2], "\n", sep="");
+		cat("After  Rows: ", rowcol[1], " x Cols: ", rowcol[2], "\n", sep="");
+
+	}else if(length(grep("^rem_var_max_perc_na", cmd))==1){
+		var=strsplit(cmd, "\\s+")[[1]][2];
+		cat("Keeping variables where percentage NA < ", var, "\n", sep="");
+		keep_ix=find_variables_woNAs(factors, max_na_perc_thres=as.numeric(var));
+		factors=factors[,keep_ix, drop=F];
+		rowcol=dim(factors);
+		cat("Rows: ", rowcol[1], " x Cols: ", rowcol[2], "\n", sep="");
+
+	}else if(length(grep("^rem_var_max_perc_modedom", cmd))==1){
+		var=strsplit(cmd, "\\s+")[[1]][2];
+		cat("Keeping variables with mode dominance < ", var, "\n", sep="");
+		keep_ix=find_variables_wModeDominance(factors, perc_max_dominant_thres=as.numeric(var));
+		factors=factors[,keep_ix, drop=F];
+		rowcol=dim(factors);
+		cat("Rows: ", rowcol[1], " x Cols: ", rowcol[2], "\n", sep="");
+
+	}else if(length(grep("^match_apply", cmd))==1){
+		# rename variables 
+		toks=strsplit(cmd, "\\s+")[[1]];
+		extensionA=toks[2];
+		extensionB=toks[3];
+		funct=toks[4];
+		keepA=as.logical(toks[5]);
+		keepB=as.logical(toks[6]);
+		keepAB=as.logical(toks[7]);
+
+		cat("Match Apply: ", funct, "(A=", extensionA, ",B=", extensionB,")\n", sep="");
+
+		factors=match_apply(factors, extensionA, extensionB, funct, keepA, keepB, keepAB);
+
+	}else if(length(grep("^batch_apply ", cmd))==1){
+
+		params=str_match(cmd, "^batch_apply (.+) \"(.+)\" (.+) (.+)");		
+		listfn=params[2];
+		funct=params[3];
+		new_ext=params[4];
+		keep=as.logical(as.numeric(params[5]));
+
+		factors=batch_apply(factors, listfn, funct, new_ext, keep);		
+
+	}else if(length(grep("^prepend_names ", cmd))==1){
+		# example: prepend_names <prefix> <start> <end>
+
+		params=strsplit(cmd, "\\s+")[[1]];
+		prefix=params[2]
+		start_pos=as.numeric(params[3]);
+		end_pos=as.numeric(params[4]);
+		if(is.na(end_pos)){
+			end_pos=ncol(factors);
+		}
+	
+		cat("Prepending Names with: '", prefix, "' from columns: ", 
+			start_pos, " to ", end_pos, "\n", sep="");
+
+		cnames=colnames(factors);
+		cnames[start_pos:end_pos]=paste(prefix, cnames[start_pos:end_pos], sep="");
+		colnames(factors)=cnames;
+
 	}else if(length(grep("^make_key ", cmd))==1){
 		# move column to first position
 		var=strsplit(cmd, "\\s+")[[1]][2];
@@ -727,29 +1581,43 @@ for(cmd in commands){
 		cnames=colnames(factors);
 		cnames=setdiff(cnames, var);
 		factors=cbind(key_col_val, factors[,cnames,drop=F]);
+
 	}else if(length(grep("^print ", cmd))==1){
 		var=strsplit(cmd, "\\s+")[[1]][2];
 		cat("Printing ", var, "\n", sep="");
 		print(factors[, var, drop=F]);
+
 	}else if(length(grep("^quit", cmd))==1){
 		cat("Forcing quit...\n");
 		quit("yes");
+
 	}else{
 		# Add variable to factors
 		#cmd=gsub("\\s+", "", cmd);
 		lhs=strsplit(cmd, "=")[[1]][1];
+		lhs=trimws(lhs);
 		cat("LHS: ", lhs, "\n");
+
 		results=eval(parse(text=cmd), envir=factors);
 		print(results);
-		cnames=colnames(factors);
 
-		if(any(lhs==cnames)){
-			# Replace
-			factors[,lhs]=results;
+		cnames=colnames(factors);
+		if(is.null(ncol(results)) || ncol(results)==1){
+			# Single column results
+			if(any(lhs==cnames)){
+				# Replace
+				factors[,lhs]=results;
+			}else{
+				# Append
+				factors=cbind(factors, results, stringsAsFactors=F);
+				colnames(factors)=c(cnames, lhs);
+			}
 		}else{
-			# Append
+			# Multi column results
+			result_colnames=colnames(results);
+			prefixed_res_cn=paste(lhs, ".", result_colnames, sep="");
 			factors=cbind(factors, results, stringsAsFactors=F);
-			colnames(factors)=c(cnames, lhs);
+			colnames(factors)=c(cnames, prefixed_res_cn);
 		}
 	}
 	
