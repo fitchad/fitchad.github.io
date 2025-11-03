@@ -4,9 +4,11 @@
 library('getopt'); 
 
 params=c("input_file", "i", 1, "character", 
+	"output_file", "o", 1, "character",
 	"drop_list", "d", 2, "character", 
-	"taxa_column_name", "t", 2, "character", 
-	"output_file", "o", 1, "character"
+	"taxa_column_name", "t", 2, "character",
+	"delimiter", "s", 0, "character"
+
 );
 
 opt=getopt(spec=matrix(params, ncol=4, byrow=TRUE), debug=FALSE); 
@@ -15,11 +17,12 @@ script_name=unlist(strsplit(commandArgs(FALSE)[4],"=")[1])[2];
 
 usage = paste(
 	"\nUsage:\n\n", script_name, 
-	"\n", " 
-		-i <input summary_table.tsv>\n", 
+	"\n",
+	"	-i <input summary_table.tsv>\n", 
+	"	-o <output summary_table basename>\n", 
 	"	[-d <drop list>]\n", 
 	"	[-t <taxa column name>]\n", 
-	"	-o <output summary_table file name>\n", 
+	"	[-s <delimiter>]\n",
 	"\n", 
 	"This script will convert an epi2me summary table into a CMM compatible summary table,\n", 
 	"writing out to a new file.\n", 
@@ -29,6 +32,7 @@ usage = paste(
 	"\n", 
 	"If the -t column is set, then the taxa column is user defined. Otherwise, the epi2me default \n", 
 	"of 'tax' is set .\n", 
+	"-s delimiter is set to "," (csv) but can be set to tab by using this flag \n",
 	"\n");
 
 if(!length(opt$input_file) || !length(opt$output_file)){ 
@@ -64,10 +68,17 @@ if(InputFileName==OutputFileName){
 	cat("Error: Input and output summary table file name are the same.\n");
 }
 
+SEP<-",";
+if(length(opt$delimiter)){
+        SEP='\t';
+}
+
+
 #######################################################################################################
 #### Functions #####
 load_factors=function(fname){ 
-	factors=data.frame(read.table(fname, header=TRUE, check.names=FALSE, comment.char="", quote="", sep=",")); 
+#	factors=data.frame(read.table(fname, header=TRUE, check.names=FALSE, comment.char="", quote="", sep=SEP)); 
+        factors=read.table(fname, header=TRUE, check.names=FALSE, comment.char="", quote="", sep=SEP);
 	dimen=dim(factors); 
 	cat("\n","\n"); 
 	cat("Loading : ", fname, "\n"); 

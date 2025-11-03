@@ -13,7 +13,6 @@ it will add its values to the existing key.
 
 It will then save the resulting dictionary into a file. 
 
-
 To do:
 1. Make this work for every column. User will set an ID column to merge
 on. Program will then take each column, create a list of metadata separated
@@ -117,7 +116,7 @@ datafile, fieldnumber, delimiter, Retain, Duplicated, Sort, outputfile = get_arg
 
 
 
-if fieldnumber:   
+if fieldnumber:
     parse_field=[]
     for item in fieldnumber:
        parse_field.append(int(item)-1)
@@ -136,44 +135,43 @@ else:
 
 #Logic to determine file type (csv or tsv).
 with open (datafile, 'r') as F:
-    
-    for i, l in enumerate(F,1):
-                pass
-    F.seek(0)
+	for i, l in enumerate(F,1):
+		pass
+	F.seek(0)
 
-    if i < 10:
-        head = [next(F) for x in range (i)]
-    else:
-        head = [next(F) for x in range (10)]
+	if i < 10:
+		head = [next(F) for x in range (i)]
+	else:
+		head = [next(F) for x in range (10)]
 
-    counterDictionary = {"countCSV":0, "countTSV":0 }    
+	counterDictionary = {"countCSV":0, "countTSV":0 }
 
-    for line in head:
-        if re.search(',', line):
-            numberOfMatches=re.findall(',', line)
-            lengthOfMatches=len(numberOfMatches)
-            counterDictionary["countCSV"]=counterDictionary.get("countCSV",0)+lengthOfMatches
-        if re.search('\t', line):
-            numberOfMatches=re.findall('\t', line)
-            lengthOfMatches=len(numberOfMatches)          
-            counterDictionary["countTSV"]=counterDictionary.get("countTSV",0)+lengthOfMatches
+	for line in head:
+		if re.search(',', line):
+			numberOfMatches=re.findall(',', line)
+			lengthOfMatches=len(numberOfMatches)
+			counterDictionary["countCSV"]=counterDictionary.get("countCSV",0)+lengthOfMatches
+		if re.search('\t', line):
+			numberOfMatches=re.findall('\t', line)
+			lengthOfMatches=len(numberOfMatches)
+			counterDictionary["countTSV"]=counterDictionary.get("countTSV",0)+lengthOfMatches
 
-    if counterDictionary["countTSV"] != counterDictionary["countCSV"]:
-    
-        maxCount = max(counterDictionary, key=counterDictionary.get)
+	if counterDictionary["countTSV"] != counterDictionary["countCSV"]:
+		maxCount = max(counterDictionary, key=counterDictionary.get)
 
-        if maxCount == "countCSV":
-            fileType = ","
-        elif maxCount == "countTSV":
-           fileType = "\t"
-    else:
-        fileType = ","
-        print("\n")
-        print("Unable to determine filetype automatically.")
-        print("Input may just be a single column, which is OK")
-        print("If necessary will try ',' as a column seperator")
+		if maxCount == "countCSV":
+			fileType = ","
+		elif maxCount == "countTSV":
+			fileType = "\t"
+	else:
+		fileType = ","
+		print("\n")
+		print("Unable to determine filetype automatically.")
+		print("Input may just be a single column, which is OK")
+		print("If necessary will try ',' as a column seperator")
 
-
+#	if counterDictionary["countTSV"] == counterDictionary["countCSV"]:
+ #               fileType = ","
 
 
 ## Variables ##
@@ -239,7 +237,7 @@ print("Number of unique keys: ", len(keyDictionary))
 
 
 #### writing output ####
-with open(outputfile, 'w') as f:  # Just set 'w' mode in 3.x
+with open(outputfile, 'w', newline='') as f:  # Just set 'w' mode in 3.x
     w = csv.writer(f, delimiter=fileType)
     #w = csv.writer(sys.stderr) #for debugging, prints to stdout
     for key, values in sorted(keyDictionary.items()):
@@ -253,3 +251,15 @@ with open(outputfile, 'w') as f:  # Just set 'w' mode in 3.x
         for val2 in templist2:
             templist.append(val2)
         w.writerow(templist)
+
+# Open the file again and manually fix line endings to Unix style
+with open(outputfile, 'r') as f:
+    content = f.read()
+
+# Replace all '\r\n' (Windows style) with '\n' (Unix style)
+    content = content.replace('\r\n', '\n')
+
+# Write the fixed content back to the file
+with open(outputfile, 'w', newline='') as f:
+    f.write(content)
+
