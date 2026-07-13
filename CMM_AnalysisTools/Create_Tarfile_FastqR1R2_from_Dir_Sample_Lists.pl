@@ -1,10 +1,5 @@
 #!/usr/bin/env perl
 
-#To Do:
-#1.report if non matching pairs of R1 / R2.
-	# Done for R1...harder to do for R2 as everything is based off of R1. 
-	#. could simply repeat proceedure for R2 first and output results (but not record results for future use)
-#2. cleanup / remove unnecessary code
 
 ###############################################################################
 
@@ -37,11 +32,27 @@ $0
 	look for the fastq.gz files, for example:
 	/mnt/cmmnas02/SequencingRuns/20180934_efef_dfdfe__RN-0000/Run
 
-	The script now matches the directory name for R1/R2 file pairs so these
+	The sampleID list should be as close to matching the actual name of the sample
+	as possible. However, The code will look for iterations of the sampleID.
+	For example, "0234.4536.20220304.ST" would match that exact ID and 
+	also "0234.4536.20220304.ST.2", etc. 
+
+	A LibraryID is generated using the Run "RN" number and the sampleID "S" number, 
+	which is unique per run and part of the fastq filename. 
+	If the RN number is not part of the RunID the code will fall back to the date of the run
+	(ie the leading date YYYYMMDD of the RunID), then the full run name. 
+
+	Fastq files under 2kb will be checked to insure they are not empty files.
+	Empty files will be removed and noted in an empty files log. 
+
+	The script uses the directory name for R1/R2 file pair matching so these
 	files should be in the same subdirectory. 
 
-	The output file is a tar.gz file containing all matched R1 and R2 fastq.gz files.
-	All matched files will be dumped into a single directory as requested by SRA. 
+	Large projects will be split into chunks of 950 samples. The SRA has a hard limit of 1000
+	lines per submission. 
+
+	The output files are a tar.gz file(s) containing all matched R1 and R2 fastq.gz files and logs.
+	All matched files (in each chunk) will be dumped into a single directory as requested by SRA. 
 	Duplicated filenames will be appended with an .r# to make them unique.
 
 	If the -p prompt option is used, you will be asked if you would like to continue
@@ -51,9 +62,10 @@ $0
 
 
 	The following logfiles are created:
-	1. sampleID <\t> R1_file <\t> R2_file
-	2. filename <\t> original directory of file 
+	1. Map file - sampleID <\t> R1_file <\t> R2_file <\t> LibraryID
+	2. Original location file - filename <\t> original directory of file 
 	3. unmatched sampleID file
+	4. Empty fastq file list
 
 ";
 
@@ -213,7 +225,7 @@ foreach my $runID (@runlist) {
 }
 
 # Compares the sampleID list to the fullfastalist and creates a smaller list that
-# contains only pairs of R1 and R2 files. Uses hash lookup for R2 match (O(1)).
+# contains only pairs of R1 and R2 files. Uses hash lookup for R2 match.
 # Also checks for unmatched R2 files.
 
 my %seen_r2;  # track which R2 files have been matched
@@ -318,9 +330,6 @@ my %samp_to_uniqsamp_hash;
 my %path_to_uniq;   # reverse of sampid_to_path_hash: orig_path -> unique_name
 
 # Append ID with r#
-
-#can clean this up. remove second if statement and just grab needed information for rename.  
-#sorting keys first seems to clean up the mismatched r1/r2 problem. will need more testing. 
 
 foreach my $fpath(sort keys %map){
         my $samp_id = join "", @{$map{$fpath}};
@@ -525,7 +534,7 @@ close(OUT_FH);
 
 #------------------------------------------------------------------------------
 
-#add prompt to create tarfile or skip due to missing samples
+#prompt to create tarfile or skip due to missing samples
 
 
 if($opt_p){
