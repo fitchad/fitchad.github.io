@@ -12,9 +12,9 @@ library('getopt')
 
 params = c(
     "input_file", "i", 1, "character",   # Input file (IDF)
-    "header_file", "h", 2, "character",  # Header file (IHF)
-    "output_file", "o", 2, "character",  # Output file (ODF)
-    "remove_lines", "r", 2, "character"  # Lines to remove from the input file
+    "header_file", "h", 1, "character",  # Header file (IHF)
+    "output_file", "o", 1, "character",  # Output file (ODF)
+    "remove_lines", "r", 1, "character"  # Lines to remove from the input file
 )
 
 opt = getopt(spec = matrix(params, ncol = 4, byrow = TRUE), debug = FALSE)
