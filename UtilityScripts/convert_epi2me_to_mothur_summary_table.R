@@ -5,8 +5,8 @@ library('getopt');
 
 params=c("input_file", "i", 1, "character", 
 	"output_file", "o", 1, "character",
-	"drop_list", "d", 2, "character", 
-	"taxa_column_name", "t", 2, "character",
+	"drop_list", "d", 1, "character", 
+	"taxa_column_name", "t", 1, "character",
 	"delimiter", "s", 0, "character"
 
 );
@@ -60,7 +60,7 @@ cat("Taxa Column Name: ", TaxaColumnName, "\n"); cat("\n");
 if(length(opt$drop_list)){
 	DropList=as.vector(read.table(opt$drop_list, header=FALSE, comment.char="#", sep="\t")[,1]);
 }else{
-	DropList=c("total", "superkingdom", "kingdom", "phylum", "class", "order", "family", "genus"); 
+	DropList=c("total", "superkingdom", "kingdom", "phylum", "class", "order", "family", "genus", "species"); 
 	cat("Drop list: ", DropList, "\n");
 }
 

@@ -21,15 +21,15 @@ options(useFancyQuotes = F);
 
 params = c(
   "samplelist", "l", 1, "character",
-  "metadata", "m", 2, "character",
-  "outputfilename", "o", 3, "character",
-  "columnslist", "L", 4, "list",
-  "columnsmeta", "C", 5, "list",
-  "all_merge", "A", 6, "character",
-  "slcolname", "S", 7, "character",
-  "mdcolname", "M", 8, "character",
-  "headcolumn", "H", 9, "character",
-  "replace", "R", 10, "list"
+  "metadata", "m", 1, "character",
+  "outputfilename", "o", 1, "character",
+  "columnslist", "L", 1, "character",
+  "columnsmeta", "C", 1, "character",
+  "all_merge", "A", 1, "character",
+  "slcolname", "S", 1, "character",
+  "mdcolname", "M", 1, "character",
+  "headcolumn", "H", 1, "character",
+  "replace", "R", 1, "character"
   
 );
 

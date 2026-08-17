@@ -23,11 +23,11 @@ options(useFancyQuotes = F);
 
 params = c(
   "summarytable1", "a", 1, "character",
-  "summarytable2", "b", 2, "character",
-  "summarytable3", "c", 3, "character",
-  "outputfilename", "o", 4, "character",
-  "samplesperplot", "s", 5, "integer",
-  "columnlist", "l", 6, "list"
+  "summarytable2", "b", 1, "character",
+  "summarytable3", "c", 1, "character",
+  "outputfilename", "o", 1, "character",
+  "samplesperplot", "s", 1, "integer",
+  "columnlist", "l", 1, "character"
   
 );
 

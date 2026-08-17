@@ -33,18 +33,21 @@ $0
 	path for the listed sampleIDs. 
 
 	The run list file -r should be the full paths of where you want to
-	look for the FASTQ files, for example:
-	/mnt/cmmnas02/SequencingRuns/20180934_efef_dfdfe__RN-0000/
+	look for the FASTQ files (to avoid unintentional matches), although the script will look 
+	through sub-directories of the Run directory. Example directory:
+	/mnt/cmmnas02/SequencingRuns/20180934_efef_dfdfe__RN-0000/Run
 
-	The sampleID list should be exact matches to sampleIDs, unless using -i option.
-	
+	The SampleID list should be exact matches to sampleIDs, to prevent unintentional matches.
+	Fastq files typically have dashes (-) between fields, not periods (.), due to MiSeq specs,
+	so the SampleID list should be the same (for eg "0290-Sub5-Visit1-ST")
+	SampleID list should not include "_S1_L001_R[12]_001.fastq.gz" text. 
+
 	The -i studyID option changes the interpretation of the sampleID list to one of a studyID
 	list. Instead of looking for exact matches to sampleIDs, matches will be to any samples beginning
 	with the listed studyIDs.
 	
-	If using the -i studyID option, adding the -c controls option will also capture any controls using
-	the regex '/00.+_S*_L001_R[12]_001\.fastq\.gz\$'
-
+	If using the -i studyID option, adding the -c controls option will also capture any controls in the runs
+	using the regex '/00.+_S*_L001_R[12]_001\.fastq\.gz\$'
 
 	The output file is:
 
