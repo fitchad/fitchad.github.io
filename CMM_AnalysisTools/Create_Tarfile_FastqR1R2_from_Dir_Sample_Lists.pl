@@ -34,10 +34,10 @@ $0
 
 	The sampleID list should be as close to matching the actual name of the sample
 	as possible. However, The code will look for iterations of the sampleID.
-	For example, "0234.4536.20220304.ST" would match that exact ID and 
-	also "0234.4536.20220304.ST.2", etc. 
+	For example, '0234.4536.20220304.ST' would match that exact ID and 
+	also '0234.4536.20220304.ST.2', etc. 
 
-	A LibraryID is generated using the Run "RN" number and the sampleID "S" number, 
+	A LibraryID is generated using the Run 'RN' number and the sampleID 'S' number, 
 	which is unique per run and part of the fastq filename. 
 	If the RN number is not part of the RunID the code will fall back to the date of the run
 	(ie the leading date YYYYMMDD of the RunID), then the full run name. 

@@ -39,8 +39,8 @@ $0
 
 	The SampleID list should be exact matches to sampleIDs, to prevent unintentional matches.
 	Fastq files typically have dashes (-) between fields, not periods (.), due to MiSeq specs,
-	so the SampleID list should be the same (for eg "0290-Sub5-Visit1-ST")
-	SampleID list should not include "_S1_L001_R[12]_001.fastq.gz" text. 
+	so the SampleID list should be the same (for eg '0290-Sub5-Visit1-ST')
+	SampleID list should not include '_S1_L001_R[12]_001.fastq.gz' text. 
 
 	The -i studyID option changes the interpretation of the sampleID list to one of a studyID
 	list. Instead of looking for exact matches to sampleIDs, matches will be to any samples beginning
